@@ -77,9 +77,6 @@ public class CartServiceImpl implements CartService {
             cartItemRepository.save(cartItem);
 
 
-            product.setStock_quantity(product.getStock_quantity() - request.getQuantity());
-            productRepository.save(product);
-
             return "Add product to cart success";
         } catch (WebException e) {
             throw e;
@@ -129,9 +126,6 @@ public class CartServiceImpl implements CartService {
             cartItem.setUpdatedAt(LocalDateTime.now());
             cartItemRepository.save(cartItem);
 
-            Product product = cartItem.getProduct();
-            product.setStock_quantity(product.getStock_quantity() - delta);
-            productRepository.save(product);
 
             return "Updated successfully";
         } catch (WebException e) {
@@ -152,9 +146,7 @@ public class CartServiceImpl implements CartService {
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not in cart"));
 
 
-            Product product = cartItem.getProduct();
-            product.setStock_quantity(product.getStock_quantity() + cartItem.getQuantity());
-            productRepository.save(product);
+
 
             cartItemRepository.delete(cartItem);
             return "Removed successfully";
