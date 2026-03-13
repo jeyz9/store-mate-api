@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class CartServiceImpl implements CartService {
@@ -33,13 +34,15 @@ public class CartServiceImpl implements CartService {
         this.userRepository = userRepository;
         this.productRepository = productRepository;
     }
-    
+
     @Override
     @Transactional
     public String addProductToCart(String email, CartItemRequestDTO request) {
-        try{
+        try {
             User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
             Product product = productRepository.findById(request.getProductId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
+
+
             if(product.getStock_quantity() < request.getQuantity()) throw new WebException(HttpStatus.BAD_REQUEST, "There is insufficient stock.");
 
             Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE).orElse(null);
@@ -53,12 +56,14 @@ public class CartServiceImpl implements CartService {
                         .build();
                 cart = cartRepository.save(newCart);
             }
-            
+
+
             CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), request.getProductId()).orElse(null);
+
             if(cartItem != null) {
                 cartItem.setQuantity(cartItem.getQuantity() + request.getQuantity());
                 cartItem.setUpdatedAt(LocalDateTime.now());
-            }else{
+            } else {
                 cartItem = CartItem.builder()
                         .id(null)
                         .cart(cart)
@@ -68,18 +73,88 @@ public class CartServiceImpl implements CartService {
                         .updatedAt(LocalDateTime.now())
                         .build();
             }
-            
+
             cartItemRepository.save(cartItem);
-            
-            product.setStock_quantity(product.getStock_quantity() - cartItem.getQuantity());
-            productRepository.save(product);
-            
+
+
             return "Add product to cart success";
         } catch (WebException e) {
             throw e;
-        }catch(Exception e) {
+        } catch(Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
         }
-        
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CartItem> getCartItems(String email) {
+        try {
+            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Active cart not found"));
+
+            return cartItemRepository.findAll().stream()
+                    .filter(item -> item.getCart().getId().equals(cart.getId()))
+                    .toList();
+        } catch (WebException e) {
+            throw e;
+        } catch(Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public String updateQuantity(String email, Long productId, int delta) {
+        try {
+            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart not found"));
+
+            CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), productId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not in cart"));
+
+            int newQuantity = cartItem.getQuantity() + delta;
+
+            if (newQuantity <= 0) {
+                return removeItem(email, productId);
+            }
+
+            if (delta > 0 && cartItem.getProduct().getStock_quantity() < 1) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "Insufficient stock.");
+            }
+
+            cartItem.setQuantity(newQuantity);
+            cartItem.setUpdatedAt(LocalDateTime.now());
+            cartItemRepository.save(cartItem);
+
+
+            return "Updated successfully";
+        } catch (WebException e) {
+            throw e;
+        } catch(Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public String removeItem(String email, Long productId) {
+        try {
+            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart not found"));
+
+            CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), productId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not in cart"));
+
+
+
+
+            cartItemRepository.delete(cartItem);
+            return "Removed successfully";
+        } catch (WebException e) {
+            throw e;
+        } catch(Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
+        }
     }
 }
+

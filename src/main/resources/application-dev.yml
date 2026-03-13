@@ -8,4 +8,4 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
     
   flyway:
-    enabled: false 
+    enabled: false

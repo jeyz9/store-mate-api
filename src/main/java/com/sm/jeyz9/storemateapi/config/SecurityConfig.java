@@ -73,6 +73,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/change-password"
                                 ).authenticated()
+                                .requestMatchers("/api/v1/cart/**")
+                                .authenticated()
                                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(
