@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.CartItemDTO;
 import com.sm.jeyz9.storemateapi.dto.CartItemRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Cart;
@@ -87,13 +88,33 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CartItem> getCartItems(String email) {
+    public List<CartItemDTO> getCartItems(String email) {
         try {
-            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Active cart not found"));
+            // ค้นหา User
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
+            // ค้นหา Cart ที่ ACTIVE ของ User คนนี้
+            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+                    .filter(c -> c.getUser().getId().equals(user.getId()))
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
+
+            // ดึงรายการสินค้าและแปลงเป็น DTO
             return cartItemRepository.findAll().stream()
                     .filter(item -> item.getCart().getId().equals(cart.getId()))
+                    .map(item -> {
+                        Product p = item.getProduct();
+                        return CartItemDTO.builder()
+                                .productId(p.getId())
+                                .productName(p.getName())
+                                .imageUrl(p.getProductImage().isEmpty() ? null : p.getProductImage().get(0).getImageUrl())
+                                .price(p.getPrice())
+                                .quantity(item.getQuantity())
+                                .subTotal(p.getPrice() * item.getQuantity())
+                                .stockQuantity(p.getStock_quantity())
+                                .productStatus(p.getProductStatus().getStatus())
+                                .build();
+                    })
                     .toList();
         } catch (WebException e) {
             throw e;
