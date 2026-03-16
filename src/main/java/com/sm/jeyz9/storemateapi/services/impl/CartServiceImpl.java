@@ -90,16 +90,13 @@ public class CartServiceImpl implements CartService {
     @Transactional(readOnly = true)
     public List<CartItemDTO> getCartItems(String email) {
         try {
-            // ค้นหา User
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
-
-            // ค้นหา Cart ที่ ACTIVE ของ User คนนี้
+            
             Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
                     .filter(c -> c.getUser().getId().equals(user.getId()))
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
-
-            // ดึงรายการสินค้าและแปลงเป็น DTO
+         
             return cartItemRepository.findAll().stream()
                     .filter(item -> item.getCart().getId().equals(cart.getId()))
                     .map(item -> {
