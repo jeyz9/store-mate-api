@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.CartItemDTO;
 import com.sm.jeyz9.storemateapi.dto.CartItemRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Cart;
@@ -87,13 +88,30 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CartItem> getCartItems(String email) {
+    public List<CartItemDTO> getCartItems(String email) {
         try {
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+            
             Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Active cart not found"));
-
+                    .filter(c -> c.getUser().getId().equals(user.getId()))
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
+         
             return cartItemRepository.findAll().stream()
                     .filter(item -> item.getCart().getId().equals(cart.getId()))
+                    .map(item -> {
+                        Product p = item.getProduct();
+                        return CartItemDTO.builder()
+                                .productId(p.getId())
+                                .productName(p.getName())
+                                .imageUrl(p.getProductImage().isEmpty() ? null : p.getProductImage().get(0).getImageUrl())
+                                .price(p.getPrice())
+                                .quantity(item.getQuantity())
+                                .subTotal(p.getPrice() * item.getQuantity())
+                                .stockQuantity(p.getStock_quantity())
+                                .productStatus(p.getProductStatus().getStatus())
+                                .build();
+                    })
                     .toList();
         } catch (WebException e) {
             throw e;
