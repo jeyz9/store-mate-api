@@ -14,7 +14,6 @@ public class ProductRequestDTO {
     private Long categoryId;
     private Double price;
     private Long statusId;
-    private String summary;
     private String description;
     private Integer stockQuantity;
 }
