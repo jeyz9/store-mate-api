@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
+import com.sm.jeyz9.storemateapi.dto.CartItemDTO;
 import com.sm.jeyz9.storemateapi.dto.CartItemRequestDTO;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.services.CartService;
@@ -24,20 +25,20 @@ import java.util.List;
 @RequestMapping("/api/v1/cart")
 public class CartController {
     private final CartService cartService;
-    
+
     @Autowired
     public CartController(CartService cartService) {
         this.cartService = cartService;
     }
     
+    @GetMapping("/items")
+    public ResponseEntity<List<CartItemDTO>> getCart(Principal principal) {
+        return ResponseEntity.ok(cartService.getCartItems(principal.getName()));
+    }
+    
     @PostMapping("/items")
     public ResponseEntity<String> addProductToCart(@Valid @RequestBody CartItemRequestDTO request, Principal principal) {
-           return new ResponseEntity<>(cartService.addProductToCart(principal.getName(), request), HttpStatus.CREATED);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<CartItem>> getCart(Principal principal) {
-        return ResponseEntity.ok(cartService.getCartItems(principal.getName()));
+        return new ResponseEntity<>(cartService.addProductToCart(principal.getName(), request), HttpStatus.CREATED);
     }
 
     @PatchMapping("/items/{productId}/increment")
