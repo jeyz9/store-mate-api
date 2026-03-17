@@ -192,6 +192,7 @@ public class ProductServiceImpl implements ProductService {
                             .id(p.getId())
                             .productName(p.getName())
                             .categoryName(p.getCategory().getName())
+                            .description(p.getDescription())
                             .imageUrl(p.getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null))
                             .status(p.getProductStatus().getStatus())
                             .price(p.getPrice())
