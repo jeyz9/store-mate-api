@@ -44,7 +44,6 @@ public class ProductController {
                       "categoryId": 0,
                       "price": 0.1,
                       "statusId": 0,
-                      "summary": "string",
                       "description": "string",
                       "stockQuantity": 0
                     }
