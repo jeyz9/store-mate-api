@@ -8,7 +8,7 @@ pipeline {
 
     stages {
     
-        stage('Build') {
+        stage('Build MVN') {
             agent {
                 docker {
                     image 'maven:3.9.9-eclipse-temurin-17'
@@ -19,7 +19,7 @@ pipeline {
             }
         }
     
-        stage('Test') {
+        stage('Test MVN') {
             agent {
                 docker {
                     image 'maven:3.9.9-eclipse-temurin-17'
