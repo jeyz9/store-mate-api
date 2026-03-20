@@ -7,44 +7,10 @@ pipeline {
     }
 
     stages {
-    
-        stage('Build MVN') {
-            agent {
-                docker {
-                    image 'maven:3.9.9-eclipse-temurin-17'
-                }
-            }
-            steps {
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-    
-        stage('Test MVN') {
-            agent {
-                docker {
-                    image 'maven:3.9.9-eclipse-temurin-17'
-                }
-            }
-            steps {
-                sh 'mvn test'
-            }
-        }
 
-        stage('Checkout') {
+        stage('Build & Test') {
             steps {
-                git branch: 'main', url: 'https://github.com/jeyz9/store-mate-api.git'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh 'mvn test'
+                sh 'mvn clean package'
             }
         }
 
