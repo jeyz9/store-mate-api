@@ -34,7 +34,7 @@ pipeline {
             steps {
                 sh '''
                 docker stop ${IMAGE_NAME} || true
-                docker rm {IMAGE_NAME} || true
+                docker rm ${IMAGE_NAME} || true
                 '''
             }
         }
