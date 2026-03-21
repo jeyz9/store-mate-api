@@ -9,7 +9,7 @@ pipeline {
 
     stages {
 
-        state('Test') {
+        stage('Test') {
             steps {
                 sh 'mvn test'
             }
