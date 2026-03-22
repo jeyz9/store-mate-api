@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush() 
+    }
+
     environment {
         REGISTRY_USER = "jeyzdev"
         IMAGE_NAME = "store-mate-api"
