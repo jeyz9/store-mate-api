@@ -70,11 +70,21 @@ public class SecurityConfig {
                                         // TODO: for test
                                         "/api/v1/moderator/products"
                                 ).permitAll()
+                                
+                                .requestMatchers(HttpMethod.GET, "/api/v1/cart/items").authenticated()
+                                
                                 .requestMatchers(HttpMethod.POST,
-                                        "/api/v1/auth/change-password"
+                                        "/api/v1/auth/change-password",
+                                        "/api/v1/cart/items"
                                 ).authenticated()
-                                .requestMatchers("/api/v1/cart/**")
-                                .authenticated()
+                                
+                                .requestMatchers(HttpMethod.PATCH, 
+                                        "/api/v1/cart/items/{productId}/decrement",
+                                        "/api/v1/cart/items/{productId}/increment"
+                                ).authenticated()
+                                
+                                .requestMatchers(HttpMethod.DELETE, "/api/v1/cart/items/{productId}").authenticated()
+                                
                                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(
