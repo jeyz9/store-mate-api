@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface CartRepository extends JpaRepository<Cart, Long> {
     @Query(value = """
-        SELECT * FROM carts c WHERE c.user_id = :userId AND c.status = :status;
+        SELECT c FROM carts c WHERE c.user_id = :userId AND c.status = :status;
     """, nativeQuery = true)
     Optional<Cart> findCartByStatusAndUserId(@Param("status") CartStatusName status, @Param("userId") Long userId);
 }
