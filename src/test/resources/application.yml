@@ -12,3 +12,17 @@ spring:
 
 jwt-secret: test-secret
 jwt-expiration: 60000
+
+front_end_url: "test"
+thaibulksms:
+  key: "test"
+  secret: "test"
+  send_url: "test"
+  email_sender: "test"
+  reset_password_template_uuid: "test"
+
+supabase:
+  url: "test"
+  key: "test"
+  bucket:
+    product: "test"
