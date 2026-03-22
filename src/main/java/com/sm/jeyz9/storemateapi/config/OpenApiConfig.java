@@ -28,6 +28,16 @@ import org.springframework.context.annotation.Configuration;
                 ),
                 termsOfService = "https://example.com/terms"
         ),
+        servers = {
+                @io.swagger.v3.oas.annotations.servers.Server(
+                        url = "https://api.store-mate-api.me",
+                        description = "Production Server (HTTPS)"
+                ),
+                @io.swagger.v3.oas.annotations.servers.Server(
+                        url = "http://localhost:8080",
+                        description = "Local Development Server"
+                )
+        },
         security = @SecurityRequirement(name = "Bearer Authentication")
 )
 @SecurityScheme(
