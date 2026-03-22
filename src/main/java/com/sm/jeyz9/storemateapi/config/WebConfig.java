@@ -39,7 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
                 "https://store-mate-api.onrender.com",
                 "https://storemate-final.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
