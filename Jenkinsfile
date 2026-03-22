@@ -16,7 +16,9 @@ pipeline {
 
         stage('Build + Test + Sonar') {
             when {
-                branch 'main'
+                expression { 
+                    return env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' 
+                }
             }
             steps {
                 sh '''
@@ -31,7 +33,9 @@ pipeline {
 
         stage('Build & Push Docker') {
             when {
-                branch 'main'
+                expression { 
+                    return env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' 
+                }
             }
             steps {
                 sh 'echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin'
@@ -42,7 +46,9 @@ pipeline {
 
         stage('Stop Old Container') {
             when {
-                branch 'main'
+                expression { 
+                    return env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' 
+                }
             }
             steps {
                 sh '''
@@ -54,7 +60,9 @@ pipeline {
 
         stage('Deploy') {
             when {
-                branch 'main'
+                expression { 
+                    return env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' 
+                }
             }
             steps {
                 sh '''
