@@ -15,6 +15,9 @@ pipeline {
     stages {
 
         stage('Build + Test + Sonar') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh '''
                 mvn clean verify sonar:sonar \
@@ -27,6 +30,9 @@ pipeline {
         }
 
         stage('Build & Push Docker') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh 'echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin'
                 sh 'docker build -t ${REGISTRY_USER}/${IMAGE_NAME}:latest .'
@@ -35,6 +41,9 @@ pipeline {
         }
 
         stage('Stop Old Container') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh '''
                 docker stop ${IMAGE_NAME} || true
@@ -44,6 +53,9 @@ pipeline {
         }
 
         stage('Deploy') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh '''
                 docker run -d -p 8081:8080 \
