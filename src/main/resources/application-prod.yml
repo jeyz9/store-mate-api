@@ -30,3 +30,6 @@ spring:
   flyway:
     enabled: true
     clean-disabled: true
+    
+server:
+  forward-headers-strategy: native
