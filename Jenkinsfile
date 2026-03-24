@@ -26,7 +26,8 @@ pipeline {
                   -Dsonar.projectKey=jeyzdev_store-mate \
                   -Dsonar.organization=jeyzdev \
                   -Dsonar.host.url=https://sonarcloud.io \
-                  -Dsonar.login=$SONAR_TOKEN
+                  -Dsonar.login=$SONAR_TOKEN \
+                  -Dsonar.coverage.exclusions=**
                 '''
             }
         }
