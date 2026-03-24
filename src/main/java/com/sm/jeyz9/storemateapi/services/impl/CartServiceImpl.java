@@ -46,7 +46,7 @@ public class CartServiceImpl implements CartService {
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
 
             // 1. ค้นหาตะกร้าที่ Active ของ User คนนี้เท่านั้น
-            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.valueOf(CartStatusName.ACTIVE.name()), user.getId()).orElseGet(() -> {
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId()).orElseGet(() -> {
                 Cart newCart = Cart.builder()
                         .user(user)
                         .status(CartStatusName.ACTIVE)
@@ -94,7 +94,7 @@ public class CartServiceImpl implements CartService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.valueOf(CartStatusName.ACTIVE.name()), user.getId())
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
 
             return cartItemRepository.findByCartId(cart.getId()).stream()
@@ -128,7 +128,7 @@ public class CartServiceImpl implements CartService {
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
             // แก้ไขจุดนี้: เปลี่ยนจาก findCartByStatus เป็นการหาตาม User และ Status
-            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.valueOf(CartStatusName.ACTIVE.name()), user.getId())
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart not found"));
 
             CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), productId)
