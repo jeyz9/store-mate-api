@@ -40,44 +40,45 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public String addProductToCart(String email, CartItemRequestDTO request) {
         try {
-            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
-            Product product = productRepository.findById(request.getProductId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+            Product product = productRepository.findById(request.getProductId())
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
 
-
-            if(product.getStock_quantity() < request.getQuantity()) throw new WebException(HttpStatus.BAD_REQUEST, "There is insufficient stock.");
-
-            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE).orElse(null);
-            if(cart == null) {
+            // 1. ค้นหาตะกร้าที่ Active ของ User คนนี้เท่านั้น
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId()).orElseGet(() -> {
                 Cart newCart = Cart.builder()
-                        .id(null)
                         .user(user)
                         .status(CartStatusName.ACTIVE)
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
-                cart = cartRepository.save(newCart);
+                return cartRepository.save(newCart);
+            });
+
+            // 2. ตรวจสอบจำนวนเดิมในตะกร้า (ถ้ามี)
+            CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), product.getId()).orElse(null);
+            int currentQuantityInCart = (cartItem != null) ? cartItem.getQuantity() : 0;
+            int totalNewQuantity = currentQuantityInCart + request.getQuantity();
+
+            // 3. เช็คสต็อก: จำนวนรวมต้องไม่เกินสต็อกที่มี
+            if (product.getStock_quantity() < totalNewQuantity) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "สินค้าในสต็อกไม่เพียงพอ (คุณมีในตะกร้าแล้ว " + currentQuantityInCart + " ชิ้น)");
             }
 
-
-            CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), request.getProductId()).orElse(null);
-
-            if(cartItem != null) {
-                cartItem.setQuantity(cartItem.getQuantity() + request.getQuantity());
+            if (cartItem != null) {
+                cartItem.setQuantity(totalNewQuantity);
                 cartItem.setUpdatedAt(LocalDateTime.now());
             } else {
                 cartItem = CartItem.builder()
-                        .id(null)
                         .cart(cart)
                         .product(product)
-                        .createdAt(LocalDateTime.now())
                         .quantity(request.getQuantity())
+                        .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
             }
-
             cartItemRepository.save(cartItem);
-
-
             return "Add product to cart success";
         } catch (WebException e) {
             throw e;
@@ -92,13 +93,11 @@ public class CartServiceImpl implements CartService {
         try {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
-            
-            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
-                    .filter(c -> c.getUser().getId().equals(user.getId()))
+
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
-         
-            return cartItemRepository.findAll().stream()
-                    .filter(item -> item.getCart().getId().equals(cart.getId()))
+
+            return cartItemRepository.findByCartId(cart.getId()).stream()
                     .map(item -> {
                         Product p = item.getProduct();
                         return CartItemDTO.builder()
@@ -119,12 +118,17 @@ public class CartServiceImpl implements CartService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
         }
     }
+    
 
     @Override
     @Transactional
     public String updateQuantity(String email, Long productId, int delta) {
         try {
-            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+
+            // แก้ไขจุดนี้: เปลี่ยนจาก findCartByStatus เป็นการหาตาม User และ Status
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart not found"));
 
             CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), productId)
@@ -136,14 +140,16 @@ public class CartServiceImpl implements CartService {
                 return removeItem(email, productId);
             }
 
-            if (delta > 0 && cartItem.getProduct().getStock_quantity() < 1) {
-                throw new WebException(HttpStatus.BAD_REQUEST, "Insufficient stock.");
+            // เช็คสต็อกสินค้า
+            if (delta > 0) {
+                if (cartItem.getProduct().getStock_quantity() < newQuantity) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "สินค้าในสต็อกไม่เพียงพอ");
+                }
             }
 
             cartItem.setQuantity(newQuantity);
             cartItem.setUpdatedAt(LocalDateTime.now());
             cartItemRepository.save(cartItem);
-
 
             return "Updated successfully";
         } catch (WebException e) {
@@ -157,14 +163,15 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public String removeItem(String email, Long productId) {
         try {
-            Cart cart = cartRepository.findCartByStatus(CartStatusName.ACTIVE)
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+
+            // แก้ไขให้เช็คตาม User
+            Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.valueOf(CartStatusName.ACTIVE.name()), user.getId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart not found"));
 
             CartItem cartItem = cartItemRepository.findCartItemByIdAndCartId(cart.getId(), productId)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not in cart"));
-
-
-
 
             cartItemRepository.delete(cartItem);
             return "Removed successfully";
