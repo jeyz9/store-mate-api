@@ -95,7 +95,11 @@ public class CartServiceImpl implements CartService {
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
             Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId())
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "No active cart found for this user"));
+                    .orElse(null);
+
+            if (cart == null) {
+                return List.of();
+            }
 
             return cartItemRepository.findByCartId(cart.getId()).stream()
                     .map(item -> {
