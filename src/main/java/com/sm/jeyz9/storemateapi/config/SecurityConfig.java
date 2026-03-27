@@ -71,7 +71,10 @@ public class SecurityConfig {
                                         "/api/v1/moderator/products"
                                 ).permitAll()
                                 
-                                .requestMatchers(HttpMethod.GET, "/api/v1/cart/items").authenticated()
+                                .requestMatchers(HttpMethod.GET, 
+                                        "/api/v1/cart/items",
+                                        "/api/v1/users/me/overview")
+                                .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/change-password",

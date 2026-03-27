@@ -16,7 +16,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     public UserProfileRequestDTO getUserProfile(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findUserByEmail(email)
                 .orElseThrow(() -> new RuntimeException("ไม่พบผู้ใช้งานในระบบ"));
 
         return UserProfileRequestDTO.builder()
@@ -24,23 +24,10 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .imageUrl(user.getImageUrl())
-                .createdAt(user.getCreatedAt().toString()) // เปลี่ยนให้ตรงกับชื่อฟิลด์ใน DTO
+                .createdAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null)
+                // หรือรูปแบบที่สวยงามกว่า (ใช้ String.valueOf)
+                .createdAt(String.valueOf(user.getCreatedAt()))
                 .build();
     }
-
-
-    @Override
-    @Transactional
-    public User updateProfile(Long userId, UserProfileRequestDTO dto) {
-        // แก้ไข: ใช้ userId ในการค้นหาแทน email ที่ไม่มีอยู่ในพารามิเตอร์
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("ไม่พบผู้ใช้งานในระบบ"));
-
-        // ส่วนการ Update ข้อมูล (เหมือนเดิม)
-        if (dto.getName() != null) user.setName(dto.getName());
-        if (dto.getPhone() != null) user.setPhone(dto.getPhone());
-        if (dto.getImageUrl() != null) user.setImageUrl(dto.getImageUrl());
-
-        return userRepository.save(user);
-    }
+    
 }

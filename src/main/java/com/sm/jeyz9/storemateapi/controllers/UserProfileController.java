@@ -20,19 +20,8 @@ public class UserProfileController {
     @Operation(summary = "ดูหน้าโปรไฟล์ผู้ใช้")
     @GetMapping("/overview")
     public ResponseEntity<UserProfileRequestDTO> getMyProfile(Principal principal) {
-        // ดึงโปรไฟล์ด้วย Email (ปกติ principal.getName() จะคืนค่า username/email)
         return ResponseEntity.ok(userProfileService.getUserProfile(principal.getName()));
     }
-    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้")
-    @PutMapping("/overview")
-    public ResponseEntity<User> updateMyProfile(@RequestBody UserProfileRequestDTO dto, Principal principal) {
-        try {
-            // แปลงค่าจาก Principal Name เป็น Long ID
-            Long userId = Long.valueOf(principal.getName());
-            return ResponseEntity.ok(userProfileService.updateProfile(userId, dto));
-        } catch (NumberFormatException e) {
-            // กรณีที่ principal.getName() ไม่ใช่ตัวเลข (เช่น เป็น email) จะเกิด error ตรงนี้
-            throw new RuntimeException("รูปแบบ User ID ไม่ถูกต้อง");
-        }
-    }
+
+  
 }

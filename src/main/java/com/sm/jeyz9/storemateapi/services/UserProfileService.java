@@ -5,6 +5,4 @@ import com.sm.jeyz9.storemateapi.models.User;
 
 public interface UserProfileService {
     UserProfileRequestDTO getUserProfile(String email);
-    User updateProfile(Long userId, UserProfileRequestDTO dto);
-    
 }
