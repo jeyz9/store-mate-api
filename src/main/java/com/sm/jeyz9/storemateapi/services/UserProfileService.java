@@ -5,4 +5,5 @@ import com.sm.jeyz9.storemateapi.models.User;
 
 public interface UserProfileService {
     UserProfileRequestDTO getUserProfile(String email);
+    User updateProfile(String email, UserProfileRequestDTO dto, org.springframework.web.multipart.MultipartFile image);
 }

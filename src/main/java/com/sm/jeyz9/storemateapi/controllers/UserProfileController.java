@@ -5,8 +5,10 @@ import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 
@@ -23,5 +25,15 @@ public class UserProfileController {
         return ResponseEntity.ok(userProfileService.getUserProfile(principal.getName()));
     }
 
+    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้")
+    @PutMapping(value = "/overview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<User> updateMyProfile(
+            @RequestPart(value = "data", required = false) UserProfileRequestDTO dto,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            Principal principal) {
+
+        User updatedUser = userProfileService.updateProfile(principal.getName(), dto, image);
+        return ResponseEntity.ok(updatedUser);
+    }
   
 }

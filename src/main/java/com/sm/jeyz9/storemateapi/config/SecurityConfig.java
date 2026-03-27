@@ -80,6 +80,10 @@ public class SecurityConfig {
                                         "/api/v1/auth/change-password",
                                         "/api/v1/cart/items"
                                 ).authenticated()
+
+                                .requestMatchers(HttpMethod.PUT,
+                                        "/api/v1/users/me/overview")
+                                .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
                                         "/api/v1/cart/items/{productId}/decrement",
