@@ -1,8 +1,13 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
+import com.sm.jeyz9.storemateapi.models.Subdistrict;
 import com.sm.jeyz9.storemateapi.models.User;
+import com.sm.jeyz9.storemateapi.models.UserAddress;
+import com.sm.jeyz9.storemateapi.repository.SubdistrictRepository;
+import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
@@ -12,15 +17,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
     private final SupabaseService supabaseService;
+    private final UserAddressRepository userAddressRepository;
+    private final SubdistrictRepository subdistrictRepository;
 
     @Override
     public UserProfileRequestDTO getUserProfile(String email) {
+        try {
         User user = userRepository.findUserByEmail(email)
                 .orElseThrow(() -> new RuntimeException("ไม่พบผู้ใช้งานในระบบ"));
 
@@ -33,6 +43,11 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .createdAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null)
                 .createdAt(String.valueOf(user.getCreatedAt()))
                 .build();
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
+        }
     }
 
     @Override
@@ -83,5 +98,33 @@ public class UserProfileServiceImpl implements UserProfileService {
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public UserAddress addUserAddress(String email, UserAddressRequestDTO dto) {
+        // 1. ดึงข้อมูลเจ้าของบัญชี
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+
+        // 2. ดึงข้อมูลตำบล (Subdistrict) เพื่อเชื่อมโยง District และ Province
+        Subdistrict subdistrict = subdistrictRepository.findById(dto.getSubdistrictId())
+                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลตำบล/แขวงที่ระบุ"));
+
+        // 3. จัดการเรื่องที่อยู่เริ่มต้น (Default Address)
+        if (Boolean.TRUE.equals(dto.getIsDefault())) {
+            // ให้ที่อยู่อื่นๆ ของ User คนนี้ไม่เป็น Default ก่อน
+            userAddressRepository.resetDefaultAddress(user.getId());
+        }
+
+        // 4. สร้าง Entity UserAddress
+        UserAddress address = UserAddress.builder()
+                .streetAddress(dto.getStreetAddress())
+                .subdistrict(subdistrict)
+                .isDefault(dto.getIsDefault() != null && dto.getIsDefault())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return userAddressRepository.save(address);
     }
 }

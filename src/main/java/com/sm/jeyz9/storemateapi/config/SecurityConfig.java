@@ -78,7 +78,8 @@ public class SecurityConfig {
                                 
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/change-password",
-                                        "/api/v1/cart/items"
+                                        "/api/v1/cart/items",
+                                        "/api/v1/users/me/addresses"
                                 ).authenticated()
 
                                 .requestMatchers(HttpMethod.PUT,
