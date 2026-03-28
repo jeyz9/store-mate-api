@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.models;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,5 +29,15 @@ public class Subdistrict {
     private District district;
     
     private String name;
-    private String postal_code;
+    
+    @Column(unique = true)
+    private String subdistrictCode;
+    
+    @ManyToOne
+    @JoinColumn(name = "geo_id", referencedColumnName = "id")
+    private Geography geography;
+    
+    @ManyToOne
+    @JoinColumn(name = "province_id", referencedColumnName = "id")
+    private Province province;
 }
