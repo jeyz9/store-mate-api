@@ -73,7 +73,8 @@ public class SecurityConfig {
                                 
                                 .requestMatchers(HttpMethod.GET, 
                                         "/api/v1/cart/items",
-                                        "/api/v1/users/me/overview")
+                                        "/api/v1/users/me/overview",
+                                        "/api/v1/users/me/addresses")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,
@@ -83,7 +84,8 @@ public class SecurityConfig {
                                 ).authenticated()
 
                                 .requestMatchers(HttpMethod.PUT,
-                                        "/api/v1/users/me/overview")
+                                        "/api/v1/users/me/overview",
+                                        "/api/v1/users/me/addresses/{id}")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
@@ -91,7 +93,10 @@ public class SecurityConfig {
                                         "/api/v1/cart/items/{productId}/increment"
                                 ).authenticated()
                                 
-                                .requestMatchers(HttpMethod.DELETE, "/api/v1/cart/items/{productId}").authenticated()
+                                .requestMatchers(HttpMethod.DELETE, 
+                                        "/api/v1/cart/items/{productId}",
+                                        "/api/v1/users/me/addresses/{id}"
+                                ).authenticated()
                                 
                                 .anyRequest().authenticated()
                 )

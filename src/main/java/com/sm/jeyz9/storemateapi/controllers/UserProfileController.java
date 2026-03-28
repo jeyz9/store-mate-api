@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
+import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.models.User;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users/me")
@@ -41,11 +44,37 @@ public class UserProfileController {
 
     @Operation(summary = "เพิ่มที่อยู่ใหม่")
     @PostMapping("/addresses")
-    public ResponseEntity<UserAddress> addUserAddress(
+    public ResponseEntity<UserAddressDTO> addUserAddress(
             @RequestBody UserAddressRequestDTO dto,
             Principal principal) {
-        UserAddress newAddress = userProfileService.addUserAddress(principal.getName(), dto);
+        UserAddressDTO newAddress = userProfileService.addUserAddress(principal.getName(), dto);
         return new ResponseEntity<>(newAddress, HttpStatus.CREATED);
     }
+
+    @Operation(summary = "ดึงรายการที่อยู่ทั้งหมดของผู้ใช้")
+    @GetMapping("/addresses")
+    public ResponseEntity<List<UserAddressDTO>> getMyAddresses(Principal principal) {
+        return ResponseEntity.ok(userProfileService.getUserAddresses(principal.getName()));
+    }
+
+    @Operation(summary = "ดึงข้อมูลที่อยู่ตาม ID")
+    @GetMapping("/addresses/{id}")
+    public ResponseEntity<UserAddressDTO> getAddressById(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(userProfileService.getUserAddressById(id, principal.getName()));
+    }
+    
+
+    @Operation(summary = "ลบที่อยู่ผู้ใช้งาน")
+    @DeleteMapping("/addresses/{id}")
+    public ResponseEntity<Map<String, String>> deleteAddress(
+            @PathVariable Long id,
+            Principal principal) {
+        userProfileService.deleteUserAddress(id, principal.getName());
+        return ResponseEntity.ok(Map.of("message", "ลบที่อยู่สำเร็จ"));
+    }
+
+
   
 }

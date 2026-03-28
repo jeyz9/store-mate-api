@@ -11,8 +11,10 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserAddressRequestDTO {
-    private String streetAddress; 
-    private Long subdistrictId; 
-    private Boolean isDefault;    
+public class UserAddressDTO {
+    private Long id;
+    private String receiverName;    
+    private String receiverPhone;   
+    private String fullAddress;     
+    private Boolean isDefault;      
 }
