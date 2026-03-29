@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserAddressRequestDTO {
-    private String streetAddress; 
-    private Long subdistrictId; 
+    private String streetAddress;
+    private Long zipcodeId; 
     private Boolean isDefault;    
 }

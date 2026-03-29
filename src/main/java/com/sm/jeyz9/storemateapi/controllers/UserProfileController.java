@@ -50,7 +50,7 @@ public class UserProfileController {
         UserAddressDTO newAddress = userProfileService.addUserAddress(principal.getName(), dto);
         return new ResponseEntity<>(newAddress, HttpStatus.CREATED);
     }
-
+/*
     @Operation(summary = "ดึงรายการที่อยู่ทั้งหมดของผู้ใช้")
     @GetMapping("/addresses")
     public ResponseEntity<List<UserAddressDTO>> getMyAddresses(Principal principal) {
@@ -65,7 +65,7 @@ public class UserProfileController {
         return ResponseEntity.ok(userProfileService.getUserAddressById(id, principal.getName()));
     }
     
-
+*/
     @Operation(summary = "ลบที่อยู่ผู้ใช้งาน")
     @DeleteMapping("/addresses/{id}")
     public ResponseEntity<Map<String, String>> deleteAddress(
@@ -74,7 +74,7 @@ public class UserProfileController {
         userProfileService.deleteUserAddress(id, principal.getName());
         return ResponseEntity.ok(Map.of("message", "ลบที่อยู่สำเร็จ"));
     }
-
+/*
     @Operation(summary = "แก้ไขที่อยู่ผู้ใช้งาน")
     @PutMapping("/addresses/{id}")
     public ResponseEntity<UserAddressDTO> updateAddress(
@@ -94,4 +94,6 @@ public class UserProfileController {
         UserAddressDTO updated = userProfileService.setDefaultAddress(id, principal.getName());
         return ResponseEntity.ok(updated);
     }
+    
+ */
 }

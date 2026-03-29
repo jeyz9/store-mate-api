@@ -4,12 +4,16 @@ import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
+import com.sm.jeyz9.storemateapi.models.District;
+import com.sm.jeyz9.storemateapi.models.Province;
 import com.sm.jeyz9.storemateapi.models.Subdistrict;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
+import com.sm.jeyz9.storemateapi.models.Zipcode;
 import com.sm.jeyz9.storemateapi.repository.SubdistrictRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
+import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final SupabaseService supabaseService;
     private final UserAddressRepository userAddressRepository;
     private final SubdistrictRepository subdistrictRepository;
+    private final ZipcodeRepository zipcodeRepository;
 
     @Override
     public UserProfileRequestDTO getUserProfile(String email) {
@@ -98,51 +103,53 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
         }
     }
-    
+
+    // Helper Method สำหรับใช้ร่วมกัน (Add/Update/Get)
+    private UserAddressDTO mapToDTOWithZipcode(UserAddress addr, User user, String zipcode) {
+        Subdistrict sub = addr.getSubdistrict();
+        District dist = sub.getDistrict();
+        Province prov = dist.getProvince();
+
+        // ประกอบ Full Address โดยใช้ชื่อตัวแปร zipcode ให้สอดคล้องกับ Model
+        String fullAddress = String.format("%s ต.%s อ.%s จ.%s %s",
+                addr.getStreetAddress(),
+                sub.getName(),
+                dist.getName(),
+                prov.getName(),
+                zipcode);
+
+        return UserAddressDTO.builder()
+                .id(addr.getId())
+                .receiverName(user.getName())
+                .receiverPhone(user.getPhone())
+                .fullAddress(fullAddress)
+                .isDefault(addr.getIsDefault())
+                .build();
+    }
+
+
     @Override
     @Transactional
     public UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto) {
-        try {
-            User user = userRepository.findUserByEmail(email)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-            Subdistrict subdistrict = subdistrictRepository.findById(dto.getSubdistrictId())
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลตำบล/แขวงที่ระบุ"));
+        Zipcode zipcodeEntity = zipcodeRepository.findById(dto.getZipcodeId())
+                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลรหัสไปรษณีย์"));
 
-            if (Boolean.TRUE.equals(dto.getIsDefault())) {
-                userAddressRepository.resetDefaultAddress(user.getId());
-            }
+        UserAddress address = UserAddress.builder()
+                .user(user)
+                .streetAddress(dto.getStreetAddress())
+                .subdistrict(zipcodeEntity.getSubdistrict())
+                .isDefault(dto.getIsDefault() != null && dto.getIsDefault())
+                .createdAt(LocalDateTime.now())
+                .build();
 
-            UserAddress address = UserAddress.builder()
-                    .user(user)
-                    .streetAddress(dto.getStreetAddress())
-                    .subdistrict(subdistrict)
-                    .isDefault(dto.getIsDefault() != null && dto.getIsDefault())
-                    .createdAt(LocalDateTime.now())
-                    .build();
+        UserAddress saved = userAddressRepository.save(address);
 
-            UserAddress savedAddress = userAddressRepository.save(address);
-
-            return UserAddressDTO.builder()
-                    .id(savedAddress.getId())
-                    .receiverName(user.getName()) // ชื่อจาก User
-                    .receiverPhone(user.getPhone()) // เบอร์จาก User
-                    .fullAddress(String.format("%s ต.%s อ.%s จ.%s %s",
-                            savedAddress.getStreetAddress(),
-                            subdistrict.getName(), // ชื่อตำบล
-                            subdistrict.getDistrict().getName(), // ชื่ออำเภอ
-                            subdistrict.getDistrict().getProvince().getName(), // ชื่อจังหวัด
-                            subdistrict.getPostal_code())) // รหัสไปรษณีย์
-                    .isDefault(savedAddress.getIsDefault())
-                    .build();
-
-        } catch (WebException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
-        }
+        return mapToDTOWithZipcode(saved, user, zipcodeEntity.getZipcode());
     }
-
+/*
     @Override
     @Transactional(readOnly = true)
     public List<UserAddressDTO> getUserAddresses(String email) {
@@ -210,7 +217,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
     }
 
-
+*/
     @Override
     @Transactional
     public void deleteUserAddress(Long addressId, String email) {
@@ -242,7 +249,7 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
         }
     }
-
+/*
     @Override
     @Transactional
     public UserAddressDTO updateUserAddress(Long addressId, UserAddressRequestDTO dto, String email) {
@@ -347,5 +354,7 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
         }
     }
+ 
     
+ */
 }
