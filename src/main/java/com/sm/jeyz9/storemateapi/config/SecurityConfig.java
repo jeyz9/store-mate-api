@@ -74,7 +74,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, 
                                         "/api/v1/cart/items",
                                         "/api/v1/users/me/overview",
-                                        "/api/v1/users/me/addresses")
+                                        "/api/v1/users/me/addresses",
+                                        "/api/v1/users/me/addresses/default")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,

@@ -50,7 +50,7 @@ public class UserProfileController {
         UserAddressDTO newAddress = userProfileService.addUserAddress(principal.getName(), dto);
         return new ResponseEntity<>(newAddress, HttpStatus.CREATED);
     }
-/*
+
     @Operation(summary = "ดึงรายการที่อยู่ทั้งหมดของผู้ใช้")
     @GetMapping("/addresses")
     public ResponseEntity<List<UserAddressDTO>> getMyAddresses(Principal principal) {
@@ -64,8 +64,14 @@ public class UserProfileController {
             Principal principal) {
         return ResponseEntity.ok(userProfileService.getUserAddressById(id, principal.getName()));
     }
+
+    @Operation(summary = "ดึงที่อยู่เริ่มต้น (Default Address)")
+    @GetMapping("/addresses/default")
+    public ResponseEntity<UserAddressDTO> getDefaultAddress(Principal principal) {
+        return ResponseEntity.ok(userProfileService.getDefaultAddress(principal.getName()));
+    }
     
-*/
+
     @Operation(summary = "ลบที่อยู่ผู้ใช้งาน")
     @DeleteMapping("/addresses/{id}")
     public ResponseEntity<Map<String, String>> deleteAddress(
@@ -74,7 +80,7 @@ public class UserProfileController {
         userProfileService.deleteUserAddress(id, principal.getName());
         return ResponseEntity.ok(Map.of("message", "ลบที่อยู่สำเร็จ"));
     }
-/*
+
     @Operation(summary = "แก้ไขที่อยู่ผู้ใช้งาน")
     @PutMapping("/addresses/{id}")
     public ResponseEntity<UserAddressDTO> updateAddress(
@@ -85,7 +91,6 @@ public class UserProfileController {
         UserAddressDTO updated = userProfileService.updateUserAddress(id, dto, principal.getName());
         return ResponseEntity.ok(updated);
     }
-    
     @Operation(summary = "ตั้งค่าที่อยู่เป็นค่าเริ่มต้น")
     @PatchMapping("/addresses/{id}")
     public ResponseEntity<UserAddressDTO> setDefaultAddress(
@@ -95,5 +100,4 @@ public class UserProfileController {
         return ResponseEntity.ok(updated);
     }
     
- */
 }
