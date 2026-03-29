@@ -26,3 +26,9 @@ supabase:
   key: "test"
   bucket:
     product: "test"
+    
+stripe:
+  secret-key: "test"
+  webhook-secret: "test"
+  success-url: "test"
+  cancel-url: "test"
