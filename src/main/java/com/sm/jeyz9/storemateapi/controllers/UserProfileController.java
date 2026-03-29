@@ -75,6 +75,23 @@ public class UserProfileController {
         return ResponseEntity.ok(Map.of("message", "ลบที่อยู่สำเร็จ"));
     }
 
+    @Operation(summary = "แก้ไขที่อยู่ผู้ใช้งาน")
+    @PutMapping("/addresses/{id}")
+    public ResponseEntity<UserAddressDTO> updateAddress(
+            @PathVariable Long id,
+            @RequestBody UserAddressRequestDTO dto,
+            Principal principal) {
 
-  
+        UserAddressDTO updated = userProfileService.updateUserAddress(id, dto, principal.getName());
+        return ResponseEntity.ok(updated);
+    }
+    
+    @Operation(summary = "ตั้งค่าที่อยู่เป็นค่าเริ่มต้น")
+    @PatchMapping("/addresses/{id}")
+    public ResponseEntity<UserAddressDTO> setDefaultAddress(
+            @PathVariable Long id,
+            Principal principal) {
+        UserAddressDTO updated = userProfileService.setDefaultAddress(id, principal.getName());
+        return ResponseEntity.ok(updated);
+    }
 }

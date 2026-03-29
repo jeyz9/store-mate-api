@@ -243,5 +243,109 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
     }
 
+    @Override
+    @Transactional
+    public UserAddressDTO updateUserAddress(Long addressId, UserAddressRequestDTO dto, String email) {
+        try {
+            // 1. ดึงข้อมูล User และที่อยู่เดิมที่ต้องการแก้ไข
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+
+            UserAddress address = userAddressRepository.findById(addressId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลที่อยู่ที่ระบุ"));
+
+            // 2. ตรวจสอบสิทธิ์ (Security Check): ต้องเป็นเจ้าของที่อยู่ถึงจะแก้ได้
+            if (!address.getUser().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
+            }
+
+            // 3. อัปเดตข้อมูลตำบล (Subdistrict) หากมีการส่ง ID มาใหม่
+            Subdistrict subdistrict = address.getSubdistrict();
+            if (dto.getSubdistrictId() != null) {
+                subdistrict = subdistrictRepository.findById(dto.getSubdistrictId())
+                        .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลตำบล/แขวงที่ระบุ"));
+                address.setSubdistrict(subdistrict);
+            }
+
+            // 4. จัดการเรื่องที่อยู่เริ่มต้น (Default Address) - อิงจาก logic add address
+            if (Boolean.TRUE.equals(dto.getIsDefault())) {
+                userAddressRepository.resetDefaultAddress(user.getId());
+                address.setIsDefault(true);
+            } else if (dto.getIsDefault() != null) {
+                address.setIsDefault(false);
+            }
+
+            // 5. อัปเดตข้อมูลถนน/บ้านเลขที่
+            if (dto.getStreetAddress() != null) {
+                address.setStreetAddress(dto.getStreetAddress());
+            }
+
+            // 6. บันทึกการเปลี่ยนแปลง
+            UserAddress updatedAddress = userAddressRepository.save(address);
+
+            // 7. ส่งค่ากลับเป็น DTO ที่จัดรูปแบบแล้ว (เหมือนใน addUserAddress)
+            return UserAddressDTO.builder()
+                    .id(updatedAddress.getId())
+                    .receiverName(user.getName())
+                    .receiverPhone(user.getPhone())
+                    .fullAddress(String.format("%s ต.%s อ.%s จ.%s %s",
+                            updatedAddress.getStreetAddress(),
+                            subdistrict.getName(),
+                            subdistrict.getDistrict().getName(),
+                            subdistrict.getDistrict().getProvince().getName(),
+                            subdistrict.getPostal_code()))
+                    .isDefault(updatedAddress.getIsDefault())
+                    .build();
+
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public UserAddressDTO setDefaultAddress(Long addressId, String email) {
+        try {
+            // 1. ดึงข้อมูล User และตรวจสอบว่ามีที่อยู่นี้อยู่จริงหรือไม่
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+
+            UserAddress address = userAddressRepository.findById(addressId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลที่อยู่ที่ระบุ"));
+
+            // 2. ตรวจสอบสิทธิ์ความเป็นเจ้าของ
+            if (!address.getUser().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
+            }
+
+            // 3. Reset ที่อยู่เดิมทั้งหมดของ User คนนี้ไม่ให้เป็น Default
+            userAddressRepository.resetDefaultAddress(user.getId());
+
+            // 4. ตั้งค่าที่อยู่นี้ให้เป็น Default
+            address.setIsDefault(true);
+            UserAddress updatedAddress = userAddressRepository.save(address);
+
+            // 5. ส่งกลับเป็น DTO เพื่อแจ้ง Frontend ให้ Update UI
+            return UserAddressDTO.builder()
+                    .id(updatedAddress.getId())
+                    .receiverName(user.getName())
+                    .receiverPhone(user.getPhone())
+                    .fullAddress(String.format("%s ต.%s อ.%s จ.%s %s",
+                            updatedAddress.getStreetAddress(),
+                            updatedAddress.getSubdistrict().getName(),
+                            updatedAddress.getSubdistrict().getDistrict().getName(),
+                            updatedAddress.getSubdistrict().getDistrict().getProvince().getName(),
+                            updatedAddress.getSubdistrict().getPostal_code()))
+                    .isDefault(true)
+                    .build();
+
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
+        }
+    }
     
 }

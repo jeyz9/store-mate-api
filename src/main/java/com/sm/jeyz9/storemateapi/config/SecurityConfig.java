@@ -90,7 +90,8 @@ public class SecurityConfig {
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
                                         "/api/v1/cart/items/{productId}/decrement",
-                                        "/api/v1/cart/items/{productId}/increment"
+                                        "/api/v1/cart/items/{productId}/increment",
+                                        "/api/v1/users/me/addresses/{id}"
                                 ).authenticated()
                                 
                                 .requestMatchers(HttpMethod.DELETE, 

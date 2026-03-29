@@ -15,4 +15,6 @@ public interface UserProfileService {
     List<UserAddressDTO> getUserAddresses(String email);
     UserAddressDTO getUserAddressById(Long addressId, String email);
     void deleteUserAddress(Long addressId, String email);
+    UserAddressDTO updateUserAddress(Long addressId, UserAddressRequestDTO dto, String email);
+    UserAddressDTO setDefaultAddress(Long addressId, String email);
 }
