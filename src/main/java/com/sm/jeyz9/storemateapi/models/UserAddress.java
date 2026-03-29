@@ -34,8 +34,8 @@ public class UserAddress {
     private String streetAddress;
     
     @ManyToOne
-    @JoinColumn(name = "subdistrict_id", referencedColumnName = "id")
-    private Subdistrict subdistrict;
+    @JoinColumn(name = "zipcode_id", referencedColumnName = "id")
+    private Zipcode zipcode;
     
     private Boolean isDefault;
     private LocalDateTime createdAt = LocalDateTime.now();

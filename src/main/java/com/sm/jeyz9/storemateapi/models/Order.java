@@ -1,12 +1,17 @@
 package com.sm.jeyz9.storemateapi.models;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -16,6 +21,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -36,26 +42,25 @@ public class Order {
     @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
-    
-    @ManyToOne
-    @JoinColumn(name = "status_id", referencedColumnName = "id")
-    private OrderStatus status;
-    
-    private String currency;
+
+    @Enumerated(EnumType.STRING)
+    private OrderStatusName status;
     
     @ManyToOne
     @JoinColumn(name = "checkout_type_id", referencedColumnName = "id")
     private CheckoutType checkoutType;
     
-    private String stripeSessionId;
     private String stripePaymentIntent;
+    private String clientSecret;
     
-    @ManyToOne
-    @JoinColumn(name = "order_channel_id", referencedColumnName = "id")
-    private OrderChannel orderChannel;
+    @Enumerated(EnumType.STRING)
+    private OrderChannelName orderChannel;
     
     private LocalDateTime paidAt;
     private LocalDateTime createdAt = LocalDateTime.now();
+    
+    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<OrderItem> orderItems;
     
     @PrePersist
     public void perPersist() {
