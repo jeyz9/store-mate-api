@@ -70,7 +70,7 @@ public class SecurityConfig {
                                         // TODO: for test
                                         "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",
-                                        "/api/v1/orders/test/payments/intent"
+                                        "/api/v1/orders/payments/intent"
                                 ).permitAll()
                                 
                                 .requestMatchers(HttpMethod.GET, "/api/v1/cart/items").authenticated()
