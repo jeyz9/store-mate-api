@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserAddressRepository extends JpaRepository<UserAddress, Long> {
+    UserAddress findByIsDefault(Boolean isDefault);
 }
