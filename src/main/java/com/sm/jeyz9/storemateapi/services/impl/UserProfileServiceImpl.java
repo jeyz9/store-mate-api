@@ -59,43 +59,51 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     @Transactional
-    public User updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
+    public UserProfileRequestDTO updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
         try {
+            // 1. ดึงข้อมูล User เดิม
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
+            // 2. จัดการเรื่องรูปภาพ (ถ้ามีการส่งมา)
             if (image != null && !image.isEmpty()) {
                 String imageUrl = supabaseService.uploadUserAvatar(image);
                 user.setImageUrl(imageUrl);
             }
 
+            // 3. อัปเดตข้อมูลพื้นฐาน
             if (dto != null) {
-                if (dto.getEmail() != null && !dto.getEmail().trim().isEmpty()) {
-                    String newEmail = dto.getEmail().trim();
-                    // เช็คว่า "ถ้าเมลใหม่ไม่ตรงกับเมลเดิม" ถึงจะไปเช็คว่าซ้ำกับคนอื่นไหม
-                    if (!newEmail.equalsIgnoreCase(user.getEmail())) {
-                        if (userRepository.existsUserByEmail(newEmail)) {
-                            throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
-                        }
-                        user.setEmail(newEmail);
-                    }
-                }
-
-                if (dto.getPhone() != null && !dto.getPhone().trim().isEmpty()) {
-                    String newPhone = dto.getPhone().trim();
-                    // เช็คว่า ถ้าเบอร์ใหม่ไม่ตรงกับเบอร์เดิม
-                    if (!newPhone.equals(user.getPhone())) {
-                        if (userRepository.existsUserByPhone(newPhone)) {
-                            throw new WebException(HttpStatus.BAD_REQUEST, "เบอร์โทรศัพท์นี้มีผู้อื่นใช้งานแล้ว");
-                        }
-                        user.setPhone(newPhone);
-                    }
-                }
                 if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
                     user.setName(dto.getName());
                 }
+
+                // เช็คอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
+                if (dto.getEmail() != null && !dto.getEmail().equalsIgnoreCase(user.getEmail())) {
+                    if (userRepository.existsUserByEmail(dto.getEmail())) {
+                        throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
+                    }
+                    user.setEmail(dto.getEmail());
+                }
+
+                if (dto.getPhone() != null && !dto.getPhone().equals(user.getPhone())) {
+                    if (userRepository.existsUserByPhone(dto.getPhone())) {
+                        throw new WebException(HttpStatus.BAD_REQUEST, "เบอร์โทรศัพท์นี้มีผู้อื่นใช้งานแล้ว");
+                    }
+                    user.setPhone(dto.getPhone());
+                }
             }
-            return userRepository.save(user);
+
+            // 4. บันทึกลง Database
+            User updatedUser = userRepository.save(user);
+
+            // 5. Return กลับเป็น DTO (ไม่ส่ง Model ตรงๆ)
+            return UserProfileRequestDTO.builder()
+                    .name(updatedUser.getName())
+                    .email(updatedUser.getEmail())
+                    .phone(updatedUser.getPhone())
+                    .imageUrl(updatedUser.getImageUrl())
+                    .createdAt(updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt().toString() : null)
+                    .build();
 
         } catch (WebException e) {
             throw e;
