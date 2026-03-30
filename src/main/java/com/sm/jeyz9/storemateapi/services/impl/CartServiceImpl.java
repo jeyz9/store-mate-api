@@ -105,6 +105,7 @@ public class CartServiceImpl implements CartService {
                     .map(item -> {
                         Product p = item.getProduct();
                         return CartItemDTO.builder()
+                                .cartItemId(item.getId())
                                 .productId(p.getId())
                                 .productName(p.getName())
                                 .imageUrl(p.getProductImage().isEmpty() ? null : p.getProductImage().get(0).getImageUrl())

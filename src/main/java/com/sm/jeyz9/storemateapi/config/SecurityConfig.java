@@ -68,7 +68,9 @@ public class SecurityConfig {
                                         "/api/v1/auth/reset-password",
                                         
                                         // TODO: for test
-                                        "/api/v1/moderator/products"
+                                        "/api/v1/moderator/products",
+                                        "/api/v1/orders/test/payments",
+                                        "/api/v1/orders/payments/intent"
                                 ).permitAll()
                                 
                                 .requestMatchers(HttpMethod.GET, 

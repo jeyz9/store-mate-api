@@ -1,6 +1,5 @@
 package com.sm.jeyz9.storemateapi.dto;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -12,14 +11,11 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class CartItemDTO {
-    private Long cartItemId;
-    private Long productId;
+public class OrderItemDTO {
+    private Long id;
     private String productName;
     private String imageUrl;
     private Double price;
     private Integer quantity;
-    private Double subTotal; 
-    private Integer stockQuantity; 
-    private String productStatus; 
+    private Double subTotal;
 }
