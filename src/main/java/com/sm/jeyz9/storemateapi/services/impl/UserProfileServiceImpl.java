@@ -10,7 +10,6 @@ import com.sm.jeyz9.storemateapi.models.Subdistrict;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.models.Zipcode;
-import com.sm.jeyz9.storemateapi.repository.SubdistrictRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
@@ -59,25 +58,20 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     @Transactional
-    public UserProfileRequestDTO updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
+    public String updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
         try {
-            // 1. ดึงข้อมูล User เดิม
+            // 1. ดึงข้อมูล User เดิมเพื่อตรวจสอบการมีอยู่
             User user = userRepository.findUserByEmail(email)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานในระบบ"));
 
-            // 2. จัดการเรื่องรูปภาพ (ถ้ามีการส่งมา)
-            if (image != null && !image.isEmpty()) {
-                String imageUrl = supabaseService.uploadUserAvatar(image);
-                user.setImageUrl(imageUrl);
-            }
-
-            // 3. อัปเดตข้อมูลพื้นฐาน
+            // 2. อัปเดตข้อมูลพื้นฐาน (Logic คล้ายการเตรียม Object ก่อน Save)
             if (dto != null) {
+                // ตรวจสอบชื่อ
                 if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
                     user.setName(dto.getName());
                 }
 
-                // เช็คอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
+                // ตรวจสอบอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
                 if (dto.getEmail() != null && !dto.getEmail().equalsIgnoreCase(user.getEmail())) {
                     if (userRepository.existsUserByEmail(dto.getEmail())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
@@ -85,6 +79,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                     user.setEmail(dto.getEmail());
                 }
 
+                // ตรวจสอบเบอร์โทรซ้ำ (ถ้ามีการเปลี่ยน)
                 if (dto.getPhone() != null && !dto.getPhone().equals(user.getPhone())) {
                     if (userRepository.existsUserByPhone(dto.getPhone())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "เบอร์โทรศัพท์นี้มีผู้อื่นใช้งานแล้ว");
@@ -93,17 +88,17 @@ public class UserProfileServiceImpl implements UserProfileService {
                 }
             }
 
-            // 4. บันทึกลง Database
-            User updatedUser = userRepository.save(user);
+            // 3. บันทึกข้อมูลผู้ใช้ (เทียบเท่า productRepository.save(product))
+            userRepository.save(user);
 
-            // 5. Return กลับเป็น DTO (ไม่ส่ง Model ตรงๆ)
-            return UserProfileRequestDTO.builder()
-                    .name(updatedUser.getName())
-                    .email(updatedUser.getEmail())
-                    .phone(updatedUser.getPhone())
-                    .imageUrl(updatedUser.getImageUrl())
-                    .createdAt(updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt().toString() : null)
-                    .build();
+            // 4. จัดการเรื่องรูปภาพหลังจากบันทึกข้อมูลหลักสำเร็จ (คล้าย supabaseService.saveProductImages)
+            if (image != null && !image.isEmpty()) {
+                String imageUrl = supabaseService.uploadUserAvatar(image);
+                user.setImageUrl(imageUrl);
+                userRepository.save(user); // อัปเดต URL รูปภาพกลับลงไป
+            }
+
+            return "Update profile success.";
 
         } catch (WebException e) {
             throw e;
