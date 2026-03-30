@@ -23,11 +23,11 @@ import java.util.Set;
 
 @Entity
 @Table(name = "users")
-@Getter
-@Setter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter             
+@Setter             
+@Builder           
+@NoArgsConstructor  
+@AllArgsConstructor 
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

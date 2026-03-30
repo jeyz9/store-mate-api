@@ -73,19 +73,34 @@ public class SecurityConfig {
                                         "/api/v1/orders/payments/intent"
                                 ).permitAll()
                                 
-                                .requestMatchers(HttpMethod.GET, "/api/v1/cart/items").authenticated()
+                                .requestMatchers(HttpMethod.GET, 
+                                        "/api/v1/cart/items",
+                                        "/api/v1/users/me/overview",
+                                        "/api/v1/users/me/addresses",
+                                        "/api/v1/users/me/addresses/default")
+                                .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/change-password",
-                                        "/api/v1/cart/items"
+                                        "/api/v1/cart/items",
+                                        "/api/v1/users/me/addresses"
                                 ).authenticated()
+
+                                .requestMatchers(HttpMethod.PUT,
+                                        "/api/v1/users/me/overview",
+                                        "/api/v1/users/me/addresses/{id}")
+                                .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
                                         "/api/v1/cart/items/{productId}/decrement",
-                                        "/api/v1/cart/items/{productId}/increment"
+                                        "/api/v1/cart/items/{productId}/increment",
+                                        "/api/v1/users/me/addresses/{id}"
                                 ).authenticated()
                                 
-                                .requestMatchers(HttpMethod.DELETE, "/api/v1/cart/items/{productId}").authenticated()
+                                .requestMatchers(HttpMethod.DELETE, 
+                                        "/api/v1/cart/items/{productId}",
+                                        "/api/v1/users/me/addresses/{id}"
+                                ).authenticated()
                                 
                                 .anyRequest().authenticated()
                 )
