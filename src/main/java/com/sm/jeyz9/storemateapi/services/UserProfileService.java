@@ -2,13 +2,14 @@ package com.sm.jeyz9.storemateapi.services;
 
 import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 public interface UserProfileService {
-    UserProfileRequestDTO getUserProfile(String email);
+    UserProfileDTO getUserProfile(String email);
     String updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image);
     
     UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto);

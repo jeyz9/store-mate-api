@@ -2,6 +2,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,7 +27,7 @@ public class UserProfileController {
 
     @Operation(summary = "ดูหน้าโปรไฟล์ผู้ใช้")
     @GetMapping("/overview")
-    public ResponseEntity<UserProfileRequestDTO> getMyProfile(Principal principal) {
+    public ResponseEntity<UserProfileDTO> getMyProfile(Principal principal) {
         return ResponseEntity.ok(userProfileService.getUserProfile(principal.getName()));
     }
 

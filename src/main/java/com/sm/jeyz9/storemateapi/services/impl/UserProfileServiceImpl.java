@@ -2,6 +2,7 @@ package com.sm.jeyz9.storemateapi.services.impl;
 
 import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.District;
@@ -35,16 +36,16 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final ZipcodeRepository zipcodeRepository;
 
     @Override
-    public UserProfileRequestDTO getUserProfile(String email) {
+    public UserProfileDTO getUserProfile(String email) {
         try {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new RuntimeException("ไม่พบผู้ใช้งานในระบบ"));
 
-            return UserProfileRequestDTO.builder()
+            return UserProfileDTO.builder()
                     .name(user.getName())
                     .email(user.getEmail())
                     .phone(user.getPhone())
-                    .imageUrl(user.getImageUrl())
+                    .image_url(user.getImageUrl())
                     //ในกรณที่ user ไม่มี createdAt เส้นนี้จะไม่พัง
                     .createdAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null)
                     .createdAt(String.valueOf(user.getCreatedAt()))
