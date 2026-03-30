@@ -33,13 +33,14 @@ public class UserProfileController {
 
     @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้")
     @PutMapping(value = "/overview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<User> updateMyProfile(
+    public ResponseEntity<UserProfileRequestDTO> updateMyProfile(
             @RequestPart(value = "data", required = false) UserProfileRequestDTO dto,
             @RequestPart(value = "image", required = false) MultipartFile image,
             Principal principal) {
 
-        User updatedUser = userProfileService.updateProfile(principal.getName(), dto, image);
-        return ResponseEntity.ok(updatedUser);
+        UserProfileRequestDTO updatedProfile = userProfileService.updateProfile(principal.getName(), dto, image);
+
+        return ResponseEntity.ok(updatedProfile);
     }
 
     @Operation(summary = "เพิ่มที่อยู่ใหม่")
