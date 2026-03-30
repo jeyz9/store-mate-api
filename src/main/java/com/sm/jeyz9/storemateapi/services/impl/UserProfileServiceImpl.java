@@ -33,7 +33,6 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserRepository userRepository;
     private final SupabaseService supabaseService;
     private final UserAddressRepository userAddressRepository;
-    private final SubdistrictRepository subdistrictRepository;
     private final ZipcodeRepository zipcodeRepository;
 
     @Override
@@ -106,18 +105,20 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     // Helper Method สำหรับใช้ร่วมกัน (Add/Update/Get)
-    private UserAddressDTO mapToDTOWithZipcode(UserAddress addr, User user, String zipcode) {
-        Subdistrict sub = addr.getSubdistrict();
-        District dist = sub.getDistrict();
-        Province prov = dist.getProvince();
+    private UserAddressDTO mapToDTO(UserAddress addr, User user) {
+        Zipcode z = addr.getZipcode();
+        if (z == null) return null;
 
-        // ประกอบ Full Address โดยใช้ชื่อตัวแปร zipcode ให้สอดคล้องกับ Model
+        Subdistrict sub = z.getSubdistrict();
+        District dist = z.getDistrict();
+        Province prov = z.getProvince();
+
         String fullAddress = String.format("%s ต.%s อ.%s จ.%s %s",
                 addr.getStreetAddress(),
                 sub.getName(),
                 dist.getName(),
                 prov.getName(),
-                zipcode);
+                z.getZipcode());
 
         return UserAddressDTO.builder()
                 .id(addr.getId())
@@ -133,29 +134,26 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto) {
         try{
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-        Zipcode zipcodeEntity = zipcodeRepository.findById(dto.getZipcodeId())
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลรหัสไปรษณีย์"));
+            Zipcode z = zipcodeRepository.findById(dto.getZipcodeId())
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบรหัสไปรษณีย์"));
 
-   
-        if (dto.getIsDefault() != null && dto.getIsDefault()) {
+            // บังคับ Reset อันเก่าให้เป็น false
             userAddressRepository.resetDefaultAddress(user.getId());
-        }
 
-        UserAddress address = UserAddress.builder()
-                .user(user)
-                .streetAddress(dto.getStreetAddress())
-                .subdistrict(zipcodeEntity.getSubdistrict())
-                .isDefault(true)
-                .createdAt(LocalDateTime.now())
-                .build();
+            UserAddress address = UserAddress.builder()
+                    .user(user)
+                    .streetAddress(dto.getStreetAddress())
+                    .zipcode(z) // เซต Zipcode Entity ลงไปตรงๆ ตาม Model ใหม่
+                    .isDefault(true)
+                    .createdAt(LocalDateTime.now())
+                    .build();
 
-        UserAddress saved = userAddressRepository.save(address);
-
-        return mapToDTOWithZipcode(saved, user, zipcodeEntity.getZipcode());
-    } catch (WebException e) {
+            UserAddress saved = userAddressRepository.save(address);
+            return mapToDTO(saved, user);
+        } catch (WebException e) {
         throw e;
     } catch (Exception e) {
         throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
@@ -166,23 +164,15 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public List<UserAddressDTO> getUserAddresses(String email) {
         try{
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-        // ดึงที่อยู่ทั้งหมดของ User นี้
-        List<UserAddress> addresses = userAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(user.getId());
-
-        // แปลงแต่ละ Address เป็น DTO
-        return addresses.stream()
-                .map(addr -> {
-                    // หา zipcode จาก zipcodeRepository โดยใช้ subdistrict id
-                    String zipcode = zipcodeRepository.findBySubdistrictId(addr.getSubdistrict().getId())
-                            .map(Zipcode::getZipcode)
-                            .orElse("");
-                    return mapToDTOWithZipcode(addr, user, zipcode);
-                })
-                .collect(Collectors.toList());
-    } catch (WebException e) {
+            // ดึงที่อยู่ทั้งหมด และ map เป็น DTO (ข้อมูลตำบล/รหัสไปรษณีย์อยู่ใน addr.getZipcode() แล้ว)
+            return userAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(user.getId()).stream()
+                    .map(addr -> mapToDTO(addr, user))
+                    .filter(dto -> dto != null)
+                    .collect(Collectors.toList());
+        } catch (WebException e) {
         throw e;
     } catch (Exception e) {
         throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
@@ -192,21 +182,15 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public UserAddressDTO getUserAddressById(Long id, String email) {
         try {
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-        // หาที่อยู่ตาม ID และต้องเป็นของ User คนนี้ด้วยเพื่อความปลอดภัย
-        UserAddress address = userAddressRepository.findById(id)
-                .filter(addr -> addr.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลที่อยู่ หรือคุณไม่มีสิทธิ์เข้าถึง"));
+            UserAddress addr = userAddressRepository.findById(id)
+                    .filter(a -> a.getUser().getId().equals(user.getId()))
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบที่อยู่"));
 
-        // หา zipcode มาประกอบร่าง
-        String zipcode = zipcodeRepository.findBySubdistrictId(address.getSubdistrict().getId())
-                .map(Zipcode::getZipcode)
-                .orElse("");
-
-        return mapToDTOWithZipcode(address, user, zipcode);
-    } catch (WebException e) {
+            return mapToDTO(addr, user);
+        } catch (WebException e) {
         throw e;
     } catch (Exception e) {
         throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
@@ -250,37 +234,28 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public UserAddressDTO updateUserAddress(Long id, UserAddressRequestDTO dto, String email) {
         try {
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-        UserAddress address = userAddressRepository.findById(id)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลที่อยู่"));
+            UserAddress addr = userAddressRepository.findById(id)
+                    .filter(a -> a.getUser().getId().equals(user.getId()))
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบที่อยู่"));
 
-        if (!address.getUser().getId().equals(user.getId())) {
-            throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
-        }
+            // บังคับเป็น Default
+            userAddressRepository.resetDefaultAddress(user.getId());
+            addr.setIsDefault(true);
 
-        userAddressRepository.resetDefaultAddress(user.getId());
-        address.setIsDefault(true); 
+            if (dto.getZipcodeId() != null) {
+                Zipcode z = zipcodeRepository.findById(dto.getZipcodeId())
+                        .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบรหัสไปรษณีย์"));
+                addr.setZipcode(z); // เปลี่ยน Zipcode ใหม่
+            }
 
-        String currentZipcode = "";
-        if (dto.getZipcodeId() != null) {
-            Zipcode zipcodeEntity = zipcodeRepository.findById(dto.getZipcodeId())
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลรหัสไปรษณีย์"));
-            address.setSubdistrict(zipcodeEntity.getSubdistrict());
-            currentZipcode = zipcodeEntity.getZipcode();
-        } else {
-            currentZipcode = zipcodeRepository.findBySubdistrictId(address.getSubdistrict().getId())
-                    .map(Zipcode::getZipcode)
-                    .orElse("");
-        }
+            if (dto.getStreetAddress() != null) {
+                addr.setStreetAddress(dto.getStreetAddress());
+            }
 
-        if (dto.getStreetAddress() != null) {
-            address.setStreetAddress(dto.getStreetAddress());
-        }
-
-        UserAddress saved = userAddressRepository.save(address);
-        return mapToDTOWithZipcode(saved, user, currentZipcode);
+            return mapToDTO(userAddressRepository.save(addr), user);
         } catch (WebException e) {
             throw e;
         } catch (Exception e) {
@@ -296,24 +271,10 @@ public class UserProfileServiceImpl implements UserProfileService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-            UserAddress address = userAddressRepository.findById(addressId)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลที่อยู่ที่ระบุ"));
+            UserAddress addr = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ยังไม่มีที่อยู่เริ่มต้น"));
 
-            if (!address.getUser().getId().equals(user.getId())) {
-                throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
-            }
-
-            userAddressRepository.resetDefaultAddress(user.getId());
-
-            address.setIsDefault(true);
-            UserAddress updatedAddress = userAddressRepository.save(address);
-
-            String zipcode = zipcodeRepository.findBySubdistrictId(updatedAddress.getSubdistrict().getId())
-                    .map(Zipcode::getZipcode)
-                    .orElse("");
-
-            return mapToDTOWithZipcode(updatedAddress, user, zipcode);
-
+            return mapToDTO(addr, user);
         } catch (WebException e) {
             throw e;
         } catch (Exception e) {
@@ -324,21 +285,19 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     @Transactional
     public UserAddressDTO getDefaultAddress(String email) {
-        // 1. หา User จาก email
+        try {
         User user = userRepository.findUserByEmail(email)
                 .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-        // 2. ค้นหาที่อยู่ที่ถูกตั้งเป็น Default (isDefault = true)
-        UserAddress defaultAddress = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "คุณยังไม่ได้ตั้งค่าที่อยู่เริ่มต้น"));
+        UserAddress addr = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ยังไม่มีที่อยู่เริ่มต้น"));
 
-        // 3. ดึงรหัสไปรษณีย์ผ่าน ZipcodeRepository
-        String zipcode = zipcodeRepository.findBySubdistrictId(defaultAddress.getSubdistrict().getId())
-                .map(Zipcode::getZipcode)
-                .orElse("");
-
-        // 4. ส่งกลับเป็น DTO โดยใช้ Helper Method ตัวเดิม
-        return mapToDTOWithZipcode(defaultAddress, user, zipcode);
+        return mapToDTO(addr, user);
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
+        }
     }
     
 }
