@@ -117,6 +117,7 @@ pipeline {
         }
         failure {
             echo 'Build Failed!'
+            sendNotificationToN8n('FAILED', 'Pipeline Failed', 'N/A', 'N/A')
         }
         always {
             cleanWs()
