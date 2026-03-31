@@ -6,13 +6,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter 
-@Setter 
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor 
+@NoArgsConstructor
 @AllArgsConstructor
-public class UserProfileRequestDTO {
+public class UserProfileDTO {
     private String name;
     private String email;
     private String phone;
+    private String image_url;
+    private String createdAt;
 }

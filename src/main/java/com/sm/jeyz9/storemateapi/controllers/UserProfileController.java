@@ -2,11 +2,11 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
-import com.sm.jeyz9.storemateapi.models.User;
-import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,22 +27,20 @@ public class UserProfileController {
 
     @Operation(summary = "ดูหน้าโปรไฟล์ผู้ใช้")
     @GetMapping("/overview")
-    public ResponseEntity<UserProfileRequestDTO> getMyProfile(Principal principal) {
+    public ResponseEntity<UserProfileDTO> getMyProfile(Principal principal) {
         return ResponseEntity.ok(userProfileService.getUserProfile(principal.getName()));
     }
 
-    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้")
+    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้", description = "อัปเดตข้อมูลส่วนตัว (ส่งเฉพาะฟิลด์ที่ต้องการเปลี่ยน)")
     @PutMapping(value = "/overview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserProfileRequestDTO> updateMyProfile(
+    public ResponseEntity<String> updateMyProfile(
             @RequestPart(value = "data", required = false) UserProfileRequestDTO dto,
             @RequestPart(value = "image", required = false) MultipartFile image,
             Principal principal) {
 
-        UserProfileRequestDTO updatedProfile = userProfileService.updateProfile(principal.getName(), dto, image);
-
-        return ResponseEntity.ok(updatedProfile);
+        String message = userProfileService.updateProfile(principal.getName(), dto, image);
+        return ResponseEntity.ok(message);
     }
-
     @Operation(summary = "เพิ่มที่อยู่ใหม่")
     @PostMapping("/addresses")
     public ResponseEntity<UserAddressDTO> addUserAddress(
