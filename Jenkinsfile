@@ -113,7 +113,7 @@ pipeline {
     post {
         success {
             echo 'Deploy Success!'
-            sendNotificationToN8n('SUCCESS', 'Pipeline Successfully', "${REGISTRY_USER}/${IMAGE_NAME}:latest", ${IMAGE_NAME})
+            sendNotificationToN8n('SUCCESS', 'Pipeline Successfully', "${REGISTRY_USER}/${IMAGE_NAME}:latest", IMAGE_NAME)
         }
         failure {
             echo 'Build Failed!'
