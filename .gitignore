@@ -33,3 +33,5 @@ build/
 .vscode/
 
 .env
+/hs_err_*.log
+/replay_*.log
