@@ -1,3 +1,35 @@
+def sendNotificationToN8n(String status, String stageName, String imageTag, String containerName, String hostPort) {
+    script {
+        withCredentials([
+            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL'),
+            string(credentialsId: 'host', variable: 'HOST')
+        ]) {
+            def payload = [
+                project  : env.JOB_NAME,
+                stage    : stageName,
+                status   : status,
+                build    : env.BUILD_NUMBER,
+                image    : "${env.DOCKER_REPO}:${imageTag}",
+                container: containerName,
+                url      : "http://${HOST}:${hostPort}/",
+                timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX")
+            ]
+            def body = groovy.json.JsonOutput.toJson(payload)
+            try {
+                httpRequest acceptType: 'APPLICATION_JSON',
+                            contentType: 'APPLICATION_JSON',
+                            httpMode: 'POST',
+                            requestBody: body,
+                            url: N8N_WEBHOOK_URL,
+                            validResponseCodes: '200:299'
+                echo "n8n webhook (${status}) sent successfully."
+            } catch (err) {
+                echo "Failed to send n8n webhook (${status}): ${err}"
+            }
+        }
+    }
+}
+
 pipeline {
     agent any
 
@@ -83,6 +115,7 @@ pipeline {
     post {
         success {
             echo 'Deploy Success!'
+            sendNotificationToN8n('success', 'Pipeline Successfully', 'N/A', '${IMAGE_NAME}', 'N/A')
         }
         failure {
             echo 'Build Failed!'
