@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface UserProfileService {
     UserProfileDTO getUserProfile(String email);
-    String updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image);
+    String updateProfile(String email, UserProfileRequestDTO request, MultipartFile image);
     
     UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto);
     List<UserAddressDTO> getUserAddresses(String email);

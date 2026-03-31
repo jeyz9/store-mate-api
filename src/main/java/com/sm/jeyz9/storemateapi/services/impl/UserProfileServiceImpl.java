@@ -59,33 +59,33 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     @Transactional
-    public String updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
+    public String updateProfile(String email, UserProfileRequestDTO request, MultipartFile image) {
         try {
             // 1. ดึงข้อมูล User เดิมเพื่อตรวจสอบการมีอยู่
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานในระบบ"));
 
             // 2. อัปเดตข้อมูลพื้นฐาน (Logic คล้ายการเตรียม Object ก่อน Save)
-            if (dto != null) {
+            if (request != null) {
                 // ตรวจสอบชื่อ
-                if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
-                    user.setName(dto.getName());
+                if (request.getName() != null && !request.getName().trim().isEmpty()) {
+                    user.setName(request.getName());
                 }
 
                 // ตรวจสอบอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
-                if (dto.getEmail() != null && !dto.getEmail().equalsIgnoreCase(user.getEmail())) {
-                    if (userRepository.existsUserByEmail(dto.getEmail())) {
+                if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                    if (userRepository.existsUserByEmail(request.getEmail())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
                     }
-                    user.setEmail(dto.getEmail());
+                    user.setEmail(request.getEmail());
                 }
 
                 // ตรวจสอบเบอร์โทรซ้ำ (ถ้ามีการเปลี่ยน)
-                if (dto.getPhone() != null && !dto.getPhone().equals(user.getPhone())) {
-                    if (userRepository.existsUserByPhone(dto.getPhone())) {
+                if (request.getPhone() != null && !request.getPhone().equals(user.getPhone())) {
+                    if (userRepository.existsUserByPhone(request.getPhone())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "เบอร์โทรศัพท์นี้มีผู้อื่นใช้งานแล้ว");
                     }
-                    user.setPhone(dto.getPhone());
+                    user.setPhone(request.getPhone());
                 }
             }
 
