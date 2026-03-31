@@ -55,7 +55,7 @@ pipeline {
                 sh '''
                 docker stop ${IMAGE_NAME} || true
                 docker rm ${IMAGE_NAME} || true
-                docker rmi ${IMAGE_NAME} || true
+                docker rmi ${REGISTRY_USER}/${IMAGE_NAME}:latest || true
                 '''
             }
         }
