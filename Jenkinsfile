@@ -1,18 +1,23 @@
-def sendNotificationToN8n(String status, String stageName, String image, String containerName) {
+def sendNotificationToN8n(String status, String stageName, String image, String containerName, String message = "") {
     script {
         withCredentials([
-            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')]) {
+            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')
+        ]) {
             def payload = [
                 project  : env.JOB_NAME,
                 stage    : stageName,
                 status   : status,
                 build    : env.BUILD_NUMBER,
-                image    : "${image}",
-                container: containerName,
+                branch   : env.GIT_BRANCH,
+                image    : image ?: "N/A",
+                container: containerName ?: "N/A",
                 url      : "https://api.store-mate-api.me/swagger-ui/index.html",
+                message  : message,
                 timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX")
             ]
+
             def body = groovy.json.JsonOutput.toJson(payload)
+
             try {
                 httpRequest acceptType: 'APPLICATION_JSON',
                             contentType: 'APPLICATION_JSON',
@@ -20,6 +25,7 @@ def sendNotificationToN8n(String status, String stageName, String image, String 
                             requestBody: body,
                             url: N8N_WEBHOOK_URL,
                             validResponseCodes: '200:299'
+
                 echo "n8n webhook (${status}) sent successfully."
             } catch (err) {
                 echo "Failed to send n8n webhook (${status}): ${err}"
@@ -113,12 +119,25 @@ pipeline {
     post {
         success {
             echo 'Deploy Success!'
-            sendNotificationToN8n('SUCCESS', 'Pipeline Successfully', "${REGISTRY_USER}/${IMAGE_NAME}:latest", IMAGE_NAME)
+            sendNotificationToN8n(
+                'SUCCESS',
+                'Deploy Completed',
+                "${REGISTRY_USER}/${IMAGE_NAME}:latest",
+                IMAGE_NAME
+            )
         }
+    
         failure {
             echo 'Build Failed!'
-            sendNotificationToN8n('FAILED', 'Pipeline Failed', 'N/A', 'N/A')
+            sendNotificationToN8n(
+                'FAILED',
+                env.STAGE_NAME ?: 'Unknown Stage',
+                'N/A',
+                'N/A',
+                currentBuild.currentResult
+            )
         }
+    
         always {
             cleanWs()
         }
