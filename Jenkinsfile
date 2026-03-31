@@ -1,9 +1,7 @@
-def sendNotificationToN8n(String status, String stageName, String imageTag, String containerName, String hostPort) {
+def sendNotificationToN8n(String status, String stageName, String imageTag, String containerName) {
     script {
         withCredentials([
-            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL'),
-            string(credentialsId: 'host', variable: 'HOST')
-        ]) {
+            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')]) {
             def payload = [
                 project  : env.JOB_NAME,
                 stage    : stageName,
@@ -11,7 +9,7 @@ def sendNotificationToN8n(String status, String stageName, String imageTag, Stri
                 build    : env.BUILD_NUMBER,
                 image    : "${env.DOCKER_REPO}:${imageTag}",
                 container: containerName,
-                url      : "http://${HOST}:${hostPort}/",
+                url      : "https://api.store-mate-api.me/swagger-ui/index.html",
                 timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX")
             ]
             def body = groovy.json.JsonOutput.toJson(payload)
@@ -115,10 +113,11 @@ pipeline {
     post {
         success {
             echo 'Deploy Success!'
-            sendNotificationToN8n('SUCCESS', 'Pipeline Successfully', 'N/A', '${IMAGE_NAME}', 'N/A')
+            sendNotificationToN8n('SUCCESS', 'Pipeline Successfully', "${REGISTRY_USER}/${IMAGE_NAME}:latest", ${IMAGE_NAME})
         }
         failure {
             echo 'Build Failed!'
+            sendNotificationToN8n('FAILED', 'Pipeline Failed', 'N/A', 'N/A')
         }
         always {
             cleanWs()
