@@ -1,9 +1,7 @@
 def sendNotificationToN8n(String status, String stageName, String imageTag, String containerName) {
     script {
         withCredentials([
-            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL'),
-            string(credentialsId: 'host', variable: 'HOST')
-        ]) {
+            string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')]) {
             def payload = [
                 project  : env.JOB_NAME,
                 stage    : stageName,
