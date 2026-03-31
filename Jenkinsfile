@@ -1,4 +1,4 @@
-def sendNotificationToN8n(String status, String stageName, String imageTag, String containerName) {
+def sendNotificationToN8n(String status, String stageName, String image, String containerName) {
     script {
         withCredentials([
             string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')]) {
@@ -7,7 +7,7 @@ def sendNotificationToN8n(String status, String stageName, String imageTag, Stri
                 stage    : stageName,
                 status   : status,
                 build    : env.BUILD_NUMBER,
-                image    : "${env.DOCKER_REPO}:${imageTag}",
+                image    : "${image}",
                 container: containerName,
                 url      : "https://api.store-mate-api.me/swagger-ui/index.html",
                 timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX")
