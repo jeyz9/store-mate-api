@@ -1,14 +1,11 @@
 package com.sm.jeyz9.storemateapi.services;
 
-import com.sm.jeyz9.storemateapi.dto.OrderDTO;
-import com.sm.jeyz9.storemateapi.dto.OrderItemDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderChannelName;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
-import com.sm.jeyz9.storemateapi.models.ProductImage;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.repository.CartItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
@@ -16,10 +13,13 @@ import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class PaymentService {
@@ -38,6 +39,7 @@ public class PaymentService {
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    
     @Value("${stripe.secret-key}")
     private String secretKey;
     
@@ -46,6 +48,9 @@ public class PaymentService {
     
     @Value("${stripe.cancel-url}")
     private String cancelUrl;
+    
+    @Value("${stripe.webhook-secret}")
+    private String endpointSecret;
 
     @Autowired
     public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
@@ -136,5 +141,26 @@ public class PaymentService {
         res.put("clientSecret", intent.getClientSecret());
         res.put("paymentIntentId", intent.getId());
         return res;
+    }
+    
+    public String handleStripeWebhook(HttpServletRequest request) throws Exception {
+        String payload = request.getReader().lines().collect(Collectors.joining());
+        String sigHeader = request.getHeader("Stripe-Signature");
+
+        Event event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
+        
+        if("payment_intent.succeeded".equals(event.getType())) {
+            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().get();
+            markAsPaid(intent.getId());
+        }
+        
+        return "success";
+    }
+    
+    private void markAsPaid(String clientSecret) {
+        Order order = orderRepository.findByStripePaymentIntent(clientSecret).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Intent not found"));
+        order.setPaidAt(LocalDateTime.now());
+        order.setStatus(OrderStatusName.PAID);
+        orderRepository.save(order);
     }
 }
