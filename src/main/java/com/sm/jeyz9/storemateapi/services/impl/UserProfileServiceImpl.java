@@ -21,6 +21,7 @@ import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +33,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
@@ -42,6 +42,18 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final ProvinceRepository provinceRepository;
     private final DistrictRepository districtRepository;
     private final SubdistrictRepository subdistrictRepository;
+
+    @Autowired
+    public UserProfileServiceImpl(UserRepository userRepository, SupabaseService supabaseService, UserAddressRepository userAddressRepository, ZipcodeRepository zipcodeRepository, ProvinceRepository provinceRepository, DistrictRepository districtRepository, SubdistrictRepository subdistrictRepository) {
+        this.userRepository = userRepository;
+        this.supabaseService = supabaseService;
+        this.userAddressRepository = userAddressRepository;
+        this.zipcodeRepository = zipcodeRepository;
+        this.provinceRepository = provinceRepository;
+        this.districtRepository = districtRepository;
+        this.subdistrictRepository = subdistrictRepository;
+    }
+
 
     @Override
     public UserProfileDTO getUserProfile(String email) {
