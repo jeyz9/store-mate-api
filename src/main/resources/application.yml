@@ -41,6 +41,7 @@ supabase:
   key: ${SUPABASE_KEY}
   bucket:
     product: ${SUPABASE_BUCKET_PRODUCT}
+    user: ${SUPABASE_BUCKET_USER}
     
 stripe:
     secret-key: ${STRIPE_SECRET_KEY}

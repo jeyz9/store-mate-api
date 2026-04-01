@@ -1,12 +1,13 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,16 +32,43 @@ public class UserProfileController {
         return ResponseEntity.ok(userProfileService.getUserProfile(principal.getName()));
     }
 
-    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้", description = "อัปเดตข้อมูลส่วนตัว (ส่งเฉพาะฟิลด์ที่ต้องการเปลี่ยน)")
+    @Operation(summary = "แก้ไขโปรไฟล์ผู้ใช้", description = """
+                    ใช้สำหรับอัปเดตข้อมูลส่วนตัวของผู้ใช้งาน พร้อมรองรับการอัปโหลดรูปภาพโปรไฟล์ 1 ภาพ
+                    (ส่งเฉพาะฟิลด์ที่ต้องการเปลี่ยนแปลง ระบบจะคงค่าเดิมไว้หากฟิลด์นั้นเป็น null)
+                   
+                    ตัวอย่าง Request:
+                    {
+                      "name": "ชื่อ ใหม่",
+                      "email": "test12345@example.com",
+                      "phone": "0812345678"
+                    }
+                    
+                    หรือจะเปลี่ยนแบงเป็นตัวๆ ได้
+                    {
+                    "name": "ชื่อ ใหม่"
+                    }
+                    
+                    เงื่อนไขการอัปเดต:
+                    - email: ต้องไม่ซ้ำกับคนอื่นในระบบ
+                    - phone: ต้องไม่ซ้ำกับคนอื่นในระบบ
+                    - image: ให้ใส่ไฟล์ภาพรับไฟล์ภาพ
+           """
+    )
     @PutMapping(value = "/overview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> updateMyProfile(
-            @RequestPart(value = "data", required = false) UserProfileRequestDTO dto,
+            @RequestPart(value = "data", required = false) String requestJson,
             @RequestPart(value = "image", required = false) MultipartFile image,
-            Principal principal) {
+            Principal principal) throws JsonProcessingException { 
 
-        String message = userProfileService.updateProfile(principal.getName(), dto, image);
-        return ResponseEntity.ok(message);
+        ObjectMapper mapper = new ObjectMapper();
+        UserProfileRequestDTO request = (requestJson != null)
+                ? mapper.readValue(requestJson, UserProfileRequestDTO.class)
+                : new UserProfileRequestDTO();
+
+        return ResponseEntity.ok(userProfileService.updateProfile(principal.getName(), request, image));
     }
+    
+    
     @Operation(summary = "เพิ่มที่อยู่ใหม่")
     @PostMapping("/addresses")
     public ResponseEntity<UserAddressDTO> addUserAddress(
@@ -97,6 +125,26 @@ public class UserProfileController {
             Principal principal) {
         UserAddressDTO updated = userProfileService.setDefaultAddress(id, principal.getName());
         return ResponseEntity.ok(updated);
+    }
+
+
+    @Operation(
+            summary = "ดึงข้อมูลที่อยู่แบบลำดับขั้น",
+            description = """
+                        ใช้ดึงข้อมูล จังหวัด -> อำเภอ -> ตำบล -> รหัสไปรษณีย์
+                        ถ้าไม่ใส id อะไรไปจะได้จังหวัดทั้งหมด 
+                        แล้วเอา id ที่ได้มาไป search ต่อเรียงไป
+                    """
+    )
+    @GetMapping("/address-dropdown")
+    public ResponseEntity<Object> getAddressDropdown(
+            @RequestParam(required = false) Long provinceId,
+            @RequestParam(required = false) Long districtId,
+            @RequestParam(required = false) Long subdistrictId) {
+
+        Object addresses = userProfileService.getAddress(provinceId, districtId, subdistrictId);
+
+        return ResponseEntity.ok(addresses);
     }
     
 }
