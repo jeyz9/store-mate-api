@@ -4,6 +4,7 @@ import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.AddressDropdownDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.District;
 import com.sm.jeyz9.storemateapi.models.Province;
@@ -11,29 +12,47 @@ import com.sm.jeyz9.storemateapi.models.Subdistrict;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.models.Zipcode;
+import com.sm.jeyz9.storemateapi.repository.DistrictRepository;
+import com.sm.jeyz9.storemateapi.repository.ProvinceRepository;
+import com.sm.jeyz9.storemateapi.repository.SubdistrictRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
     private final SupabaseService supabaseService;
     private final UserAddressRepository userAddressRepository;
     private final ZipcodeRepository zipcodeRepository;
+    private final ProvinceRepository provinceRepository;
+    private final DistrictRepository districtRepository;
+    private final SubdistrictRepository subdistrictRepository;
+
+    @Autowired
+    public UserProfileServiceImpl(UserRepository userRepository, SupabaseService supabaseService, UserAddressRepository userAddressRepository, ZipcodeRepository zipcodeRepository, ProvinceRepository provinceRepository, DistrictRepository districtRepository, SubdistrictRepository subdistrictRepository) {
+        this.userRepository = userRepository;
+        this.supabaseService = supabaseService;
+        this.userAddressRepository = userAddressRepository;
+        this.zipcodeRepository = zipcodeRepository;
+        this.provinceRepository = provinceRepository;
+        this.districtRepository = districtRepository;
+        this.subdistrictRepository = subdistrictRepository;
+    }
+
 
     @Override
     public UserProfileDTO getUserProfile(String email) {
@@ -59,33 +78,33 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Override
     @Transactional
-    public String updateProfile(String email, UserProfileRequestDTO dto, MultipartFile image) {
+    public String updateProfile(String email, UserProfileRequestDTO request, MultipartFile image) {
         try {
             // 1. ดึงข้อมูล User เดิมเพื่อตรวจสอบการมีอยู่
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานในระบบ"));
 
             // 2. อัปเดตข้อมูลพื้นฐาน (Logic คล้ายการเตรียม Object ก่อน Save)
-            if (dto != null) {
+            if (request != null) {
                 // ตรวจสอบชื่อ
-                if (dto.getName() != null && !dto.getName().trim().isEmpty()) {
-                    user.setName(dto.getName());
+                if (request.getName() != null && !request.getName().trim().isEmpty()) {
+                    user.setName(request.getName());
                 }
 
                 // ตรวจสอบอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
-                if (dto.getEmail() != null && !dto.getEmail().equalsIgnoreCase(user.getEmail())) {
-                    if (userRepository.existsUserByEmail(dto.getEmail())) {
+                if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                    if (userRepository.existsUserByEmail(request.getEmail())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
                     }
-                    user.setEmail(dto.getEmail());
+                    user.setEmail(request.getEmail());
                 }
 
                 // ตรวจสอบเบอร์โทรซ้ำ (ถ้ามีการเปลี่ยน)
-                if (dto.getPhone() != null && !dto.getPhone().equals(user.getPhone())) {
-                    if (userRepository.existsUserByPhone(dto.getPhone())) {
+                if (request.getPhone() != null && !request.getPhone().equals(user.getPhone())) {
+                    if (userRepository.existsUserByPhone(request.getPhone())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "เบอร์โทรศัพท์นี้มีผู้อื่นใช้งานแล้ว");
                     }
-                    user.setPhone(dto.getPhone());
+                    user.setPhone(request.getPhone());
                 }
             }
 
@@ -275,10 +294,23 @@ public class UserProfileServiceImpl implements UserProfileService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-            UserAddress addr = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ยังไม่มีที่อยู่เริ่มต้น"));
+            userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                    .ifPresent(oldDefault -> {
+                        oldDefault.setIsDefault(false);
+                        userAddressRepository.save(oldDefault);
+                    });
 
-            return mapToDTO(addr, user);
+            UserAddress newDefault = userAddressRepository.findById(addressId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบที่อยู่ที่ระบุ"));
+
+            if (!newDefault.getUser().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
+            }
+
+            newDefault.setIsDefault(true);
+            UserAddress savedAddr = userAddressRepository.save(newDefault);
+
+            return mapToDTO(savedAddr, user);
         } catch (WebException e) {
             throw e;
         } catch (Exception e) {
@@ -301,6 +333,36 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw e;
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
+        }
+    }
+    
+
+    @Override
+    @Transactional(readOnly = true)
+    public Object getAddress(Long provinceId, Long districtId, Long subdistrictId) {
+        try {
+            if (subdistrictId != null) {
+                return zipcodeRepository.findBySubdistrictId(subdistrictId).stream()
+                        .map(z -> new AddressDropdownDTO(z.getId(), z.getZipcode()))
+                        .toList();
+            } else if (districtId != null) {
+                return subdistrictRepository.findByDistrictId(districtId).stream()
+                        .map(s -> new AddressDropdownDTO(s.getId(), s.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            } else if (provinceId != null) {
+                return districtRepository.findByProvinceId(provinceId).stream()
+                        .map(d -> new AddressDropdownDTO(d.getId(), d.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            } else {
+                return provinceRepository.findAll().stream()
+                        .map(p -> new AddressDropdownDTO(p.getId(), p.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            }
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching address data: " + e.getMessage());
         }
     }
     

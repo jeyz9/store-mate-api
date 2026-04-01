@@ -31,7 +31,7 @@ public class SupabaseService {
     private final RestTemplate restTemplate;
     private final ProductImageRepository productImageRepository;
 
-    @Value("${supabase.bucket.user:avatars}")
+    @Value("${supabase.bucket.user}")
     private String userBucket;
     
     @Value("${supabase.url}")
@@ -118,7 +118,7 @@ public class SupabaseService {
             HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
 
             // ใช้ชื่อ Bucket สำหรับ User
-            String url = supabaseUrl + "/storage/v1/object/" + userBucket + "/" + fileName;
+            String url = supabaseUrl + "/object/" + userBucket + "/" + fileName;
 
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
 
@@ -126,8 +126,7 @@ public class SupabaseService {
                 throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปโหลดรูปโปรไฟล์ได้");
             }
 
-            // คืนค่า Public URL กลับไป (ตรวจสอบโครงสร้าง URL ของ Supabase Project ของคุณอีกครั้ง)
-            return supabaseUrl + "/storage/v1/object/public/" + userBucket + "/" + fileName;
+            return supabaseUrl + "/object/" + userBucket + "/" + fileName;
         } catch (IOException e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดในการอ่านไฟล์: " + e.getMessage());
         }
