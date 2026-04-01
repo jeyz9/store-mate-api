@@ -20,7 +20,6 @@ import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
 import com.sm.jeyz9.storemateapi.services.UserProfileService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
