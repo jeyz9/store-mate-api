@@ -19,4 +19,6 @@ public interface UserProfileService {
     UserAddressDTO updateUserAddress(Long addressId, UserAddressRequestDTO dto, String email);
     UserAddressDTO setDefaultAddress(Long addressId, String email);
     UserAddressDTO getDefaultAddress(String email);
+    
+    Object getAddress(Long provinceId, Long districtId, Long subdistrictId);
 }

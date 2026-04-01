@@ -126,5 +126,25 @@ public class UserProfileController {
         UserAddressDTO updated = userProfileService.setDefaultAddress(id, principal.getName());
         return ResponseEntity.ok(updated);
     }
+
+
+    @Operation(
+            summary = "ดึงข้อมูลที่อยู่แบบลำดับขั้น",
+            description = """
+                        ใช้ดึงข้อมูล จังหวัด -> อำเภอ -> ตำบล -> รหัสไปรษณีย์
+                        ถ้าไม่ใส id อะไรไปจะได้จังหวัดทั้งหมด 
+                        แล้วเอา id ที่ได้มาไป search ต่อเรียงไป
+                    """
+    )
+    @GetMapping("/address-dropdown")
+    public ResponseEntity<Object> getAddressDropdown(
+            @RequestParam(required = false) Long provinceId,
+            @RequestParam(required = false) Long districtId,
+            @RequestParam(required = false) Long subdistrictId) {
+
+        Object addresses = userProfileService.getAddress(provinceId, districtId, subdistrictId);
+
+        return ResponseEntity.ok(addresses);
+    }
     
 }

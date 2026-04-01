@@ -4,6 +4,7 @@ import com.sm.jeyz9.storemateapi.dto.UserAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.UserAddressRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileDTO;
 import com.sm.jeyz9.storemateapi.dto.UserProfileRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.AddressDropdownDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.District;
 import com.sm.jeyz9.storemateapi.models.Province;
@@ -11,6 +12,9 @@ import com.sm.jeyz9.storemateapi.models.Subdistrict;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.models.Zipcode;
+import com.sm.jeyz9.storemateapi.repository.DistrictRepository;
+import com.sm.jeyz9.storemateapi.repository.ProvinceRepository;
+import com.sm.jeyz9.storemateapi.repository.SubdistrictRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
@@ -23,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +39,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final SupabaseService supabaseService;
     private final UserAddressRepository userAddressRepository;
     private final ZipcodeRepository zipcodeRepository;
+    private final ProvinceRepository provinceRepository;
+    private final DistrictRepository districtRepository;
+    private final SubdistrictRepository subdistrictRepository;
 
     @Override
     public UserProfileDTO getUserProfile(String email) {
@@ -301,6 +309,36 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw e;
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
+        }
+    }
+    
+
+    @Override
+    @Transactional(readOnly = true)
+    public Object getAddress(Long provinceId, Long districtId, Long subdistrictId) {
+        try {
+            if (subdistrictId != null) {
+                return zipcodeRepository.findBySubdistrictId(subdistrictId).stream()
+                        .map(z -> new AddressDropdownDTO(z.getId(), z.getZipcode()))
+                        .toList();
+            } else if (districtId != null) {
+                return subdistrictRepository.findByDistrictId(districtId).stream()
+                        .map(s -> new AddressDropdownDTO(s.getId(), s.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            } else if (provinceId != null) {
+                return districtRepository.findByProvinceId(provinceId).stream()
+                        .map(d -> new AddressDropdownDTO(d.getId(), d.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            } else {
+                return provinceRepository.findAll().stream()
+                        .map(p -> new AddressDropdownDTO(p.getId(), p.getName()))
+                        .sorted(Comparator.comparing(AddressDropdownDTO::getName))
+                        .toList();
+            }
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching address data: " + e.getMessage());
         }
     }
     

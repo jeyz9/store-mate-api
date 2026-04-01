@@ -59,7 +59,8 @@ public class SecurityConfig {
                                         "/swagger-ui/**",
                                         "/api/v1/products/grouped-by-category",
                                         "/api/v1/products/search",
-                                        "/api/v1/products/{id}"
+                                        "/api/v1/products/{id}",
+                                        "/api/v1/users/me/address-dropdown"
                                 ).permitAll()
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/login",
