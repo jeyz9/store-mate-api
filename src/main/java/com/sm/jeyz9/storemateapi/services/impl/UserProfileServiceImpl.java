@@ -283,10 +283,23 @@ public class UserProfileServiceImpl implements UserProfileService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
-            UserAddress addr = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ยังไม่มีที่อยู่เริ่มต้น"));
+            userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId())
+                    .ifPresent(oldDefault -> {
+                        oldDefault.setIsDefault(false);
+                        userAddressRepository.save(oldDefault);
+                    });
 
-            return mapToDTO(addr, user);
+            UserAddress newDefault = userAddressRepository.findById(addressId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบที่อยู่ที่ระบุ"));
+
+            if (!newDefault.getUser().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์แก้ไขที่อยู่นี้");
+            }
+
+            newDefault.setIsDefault(true);
+            UserAddress savedAddr = userAddressRepository.save(newDefault);
+
+            return mapToDTO(savedAddr, user);
         } catch (WebException e) {
             throw e;
         } catch (Exception e) {
