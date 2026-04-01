@@ -26,6 +26,7 @@ supabase:
   key: "test"
   bucket:
     product: "test"
+    user: "test"
     
 stripe:
   secret-key: "test"
