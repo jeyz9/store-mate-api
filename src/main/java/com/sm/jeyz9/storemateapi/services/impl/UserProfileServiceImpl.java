@@ -113,6 +113,9 @@ public class UserProfileServiceImpl implements UserProfileService {
 
             // 4. จัดการเรื่องรูปภาพหลังจากบันทึกข้อมูลหลักสำเร็จ (คล้าย supabaseService.saveProductImages)
             if (image != null && !image.isEmpty()) {
+                if (user.getImageUrl() != null) {
+                    supabaseService.deleteUserAvatar(user.getImageUrl());
+                }
                 String imageUrl = supabaseService.uploadUserAvatar(image);
                 user.setImageUrl(imageUrl);
                 userRepository.save(user); // อัปเดต URL รูปภาพกลับลงไป
@@ -363,6 +366,30 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching address data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public String deleteProfileImage(String email) {
+        try {
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+
+            // 1. ลบไฟล์ออกจาก Supabase Storage (ถ้ามีรูปอยู่)
+            if (user.getImageUrl() != null) {
+                supabaseService.deleteUserAvatar(user.getImageUrl());
+            }
+
+            // 2. ล้างค่า URL ในฐานข้อมูลให้เป็น null
+            user.setImageUrl(null);
+            userRepository.save(user);
+
+            return "ลบรูปโปรไฟล์สำเร็จ";
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
         }
     }
     
