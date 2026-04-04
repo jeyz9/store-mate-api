@@ -139,18 +139,15 @@ public class UserProfileServiceImpl implements UserProfileService {
         District dist = z.getDistrict();
         Province prov = z.getProvince();
 
-        String fullAddress = String.format("%s ต.%s อ.%s จ.%s %s",
-                addr.getStreetAddress(),
-                sub.getName(),
-                dist.getName(),
-                prov.getName(),
-                z.getZipcode());
-
         return UserAddressDTO.builder()
                 .id(addr.getId())
                 .receiverName(user.getName())
                 .receiverPhone(user.getPhone())
-                .fullAddress(fullAddress)
+                .streetAddress(addr.getStreetAddress())
+                .subdistrict(sub.getName())
+                .district(dist.getName())
+                .province(prov.getName())
+                .zipcode(z.getZipcode())
                 .isDefault(addr.getIsDefault())
                 .build();
     }

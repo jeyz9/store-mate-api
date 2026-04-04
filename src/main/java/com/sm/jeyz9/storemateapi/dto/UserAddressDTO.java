@@ -13,8 +13,12 @@ import lombok.Setter;
 @AllArgsConstructor
 public class UserAddressDTO {
     private Long id;
-    private String receiverName;    
-    private String receiverPhone;   
-    private String fullAddress;     
-    private Boolean isDefault;      
+    private String receiverName;
+    private String receiverPhone;
+    private String streetAddress;
+    private String subdistrict;
+    private String district;
+    private String province;
+    private String zipcode;
+    private Boolean isDefault;
 }
