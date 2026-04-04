@@ -160,6 +160,13 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto) {
         try{
+            if (dto.getStreetAddress() == null || dto.getStreetAddress().trim().isEmpty()) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "กรุณาระบุที่อยู่");
+            }
+
+            if (dto.getZipcodeId() == null) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "กรุณาระบุรหัสไปรษณีย์");
+            }
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
