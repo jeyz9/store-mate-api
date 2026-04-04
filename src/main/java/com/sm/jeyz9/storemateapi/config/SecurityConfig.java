@@ -71,7 +71,8 @@ public class SecurityConfig {
                                         // TODO: for test
                                         "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",
-                                        "/api/v1/orders/payments/intent"
+                                        "/api/v1/orders/payments/intent",
+                                        "/api/v1/stripe/webhook"
                                 ).permitAll()
                                 
                                 .requestMatchers(HttpMethod.GET, 
