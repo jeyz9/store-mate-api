@@ -113,6 +113,9 @@ public class UserProfileServiceImpl implements UserProfileService {
 
             // 4. จัดการเรื่องรูปภาพหลังจากบันทึกข้อมูลหลักสำเร็จ (คล้าย supabaseService.saveProductImages)
             if (image != null && !image.isEmpty()) {
+                if (user.getImageUrl() != null) {
+                    supabaseService.deleteUserAvatar(user.getImageUrl());
+                }
                 String imageUrl = supabaseService.uploadUserAvatar(image);
                 user.setImageUrl(imageUrl);
                 userRepository.save(user); // อัปเดต URL รูปภาพกลับลงไป
@@ -136,18 +139,15 @@ public class UserProfileServiceImpl implements UserProfileService {
         District dist = z.getDistrict();
         Province prov = z.getProvince();
 
-        String fullAddress = String.format("%s ต.%s อ.%s จ.%s %s",
-                addr.getStreetAddress(),
-                sub.getName(),
-                dist.getName(),
-                prov.getName(),
-                z.getZipcode());
-
         return UserAddressDTO.builder()
                 .id(addr.getId())
                 .receiverName(user.getName())
                 .receiverPhone(user.getPhone())
-                .fullAddress(fullAddress)
+                .streetAddress(addr.getStreetAddress())
+                .subdistrict(sub.getName())
+                .district(dist.getName())
+                .province(prov.getName())
+                .zipcode(z.getZipcode())
                 .isDefault(addr.getIsDefault())
                 .build();
     }
@@ -157,6 +157,13 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public UserAddressDTO addUserAddress(String email, UserAddressRequestDTO dto) {
         try{
+            if (dto.getStreetAddress() == null || dto.getStreetAddress().trim().isEmpty()) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "กรุณาระบุที่อยู่");
+            }
+
+            if (dto.getZipcodeId() == null) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "กรุณาระบุรหัสไปรษณีย์");
+            }
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
 
@@ -363,6 +370,30 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching address data: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public String deleteProfileImage(String email) {
+        try {
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งาน"));
+
+            // 1. ลบไฟล์ออกจาก Supabase Storage (ถ้ามีรูปอยู่)
+            if (user.getImageUrl() != null) {
+                supabaseService.deleteUserAvatar(user.getImageUrl());
+            }
+
+            // 2. ล้างค่า URL ในฐานข้อมูลให้เป็น null
+            user.setImageUrl(null);
+            userRepository.save(user);
+
+            return "ลบรูปโปรไฟล์สำเร็จ";
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาด: " + e.getMessage());
         }
     }
     
