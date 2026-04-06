@@ -146,5 +146,12 @@ public class UserProfileController {
 
         return ResponseEntity.ok(addresses);
     }
+
+    @Operation(summary = "ลบรูปโปรไฟล์")
+    @DeleteMapping("/profile-image")
+    public ResponseEntity<String> deleteMyProfileImage(Principal principal) {
+        String message = userProfileService.deleteProfileImage(principal.getName());
+        return ResponseEntity.ok(message);
+    }
     
 }
