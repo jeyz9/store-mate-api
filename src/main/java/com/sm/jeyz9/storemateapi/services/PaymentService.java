@@ -16,6 +16,7 @@ import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.stripe.Stripe;
+import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
@@ -158,7 +159,7 @@ public class PaymentService {
         return res;
     }
     
-    public void handleStripeWebhook(Event event) {
+    public void handleStripeWebhook(Event event) throws EventDataObjectDeserializationException {
         log.info("Event type: {}", event.getType());
         switch (event.getType()) {
             case "payment_intent.succeeded":
@@ -171,16 +172,17 @@ public class PaymentService {
         }
     }
 
-    private void handlePaymentSucceeded(Event event) {
+    private void handlePaymentSucceeded(Event event) throws EventDataObjectDeserializationException {
         EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
-
+        PaymentIntent intent = null;
         if (deserializer.getObject().isPresent()) {
-            PaymentIntent intent = (PaymentIntent) deserializer.getObject().get();
-            log.info("Intent id: {}", intent.getId());
-            markAsPaid(intent.getId());
+            intent = (PaymentIntent) deserializer.getObject().get();
         } else {
-            System.out.println("Deserialize failed: " + event.getId());
+            intent = (PaymentIntent) deserializer.deserializeUnsafe();
         }
+
+        log.info("Intent id: {}", intent.getId());
+        markAsPaid(intent.getId());
     }
 
     private void handlePaymentFailed(Event event) {
