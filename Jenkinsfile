@@ -49,6 +49,9 @@ pipeline {
     }
 
     stages {
+        stage('bug') {
+            sh 'docker bug bug'
+        }
 
         stage('Build + Test + Sonar') {
             when {
