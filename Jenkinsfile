@@ -135,25 +135,20 @@ pipeline {
         failure {
             script{
                 echo 'Build Failed!'
-                def errors = ""
-                    try {
-                        def logs = currentBuild.rawBuild.getLog(300)
+                def logs = currentBuild.rawBuild.getLog(1000)
                 
-                        errors = logs.findAll {
-                            it ==~ /(?i).*(error|exception|failed|failure|syntax|not found|compilation|unknown command).*/
-                        }
+                def errors = logs.findAll {
+                    it ==~ /(?i).*(error|exception|failed|failure|syntax|not found|compilation|unknown command).*/
+                }
                 
-                    } catch (e) {
-                        echo "pull logs fails: ${e}"
-                        errors = "Cannot fetch logs from Jenkins (rawBuild blocked)"
-                    }
+                def message = errors ? errors.join("\n") : logs.takeRight(20).join("\n")
                 
                 sendNotificationToN8n(
                     'FAILED',
                     env.STAGE_NAME ?: 'Unknown Stage',
                     'N/A',
                     'N/A',
-                    errors.join('\n')
+                    message
                 )
             }
         }
