@@ -52,15 +52,11 @@ public class PaymentController {
         }
         
         String sigHeader = request.getHeader("Stripe-Signature");
-        System.out.println("SIG HEADER: " + sigHeader);
-        System.out.println("SECRET: " + endpointSecret);
-        
         try {
             Event event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
             
             paymentService.handleStripeWebhook(event);
         } catch (Exception e) {
-            System.out.println("❌ ERROR: " + e.getMessage());
             return ResponseEntity.badRequest().body("Invalid signature");
         }
         return new ResponseEntity<>("received", HttpStatus.OK);

@@ -23,6 +23,7 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class PaymentService {
 
@@ -157,8 +159,10 @@ public class PaymentService {
     }
     
     public void handleStripeWebhook(Event event) {
+        log.info("Event type: {}", event.getType());
         switch (event.getType()) {
             case "payment_intent.succeeded":
+                log.info("Pass");
                 handlePaymentSucceeded(event);
                 break;
             case "payment_intent.failed":
@@ -172,7 +176,7 @@ public class PaymentService {
 
         if (deserializer.getObject().isPresent()) {
             PaymentIntent intent = (PaymentIntent) deserializer.getObject().get();
-
+            log.info("Intent id: {}", intent.getId());
             markAsPaid(intent.getId());
         } else {
             System.out.println("Deserialize failed: " + event.getId());
