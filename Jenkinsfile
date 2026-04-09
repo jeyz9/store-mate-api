@@ -135,14 +135,23 @@ pipeline {
         failure {
             script{
                 echo 'Build Failed!'
-                def logs = currentBuild.rawBuild.getLog(300)
+                def errors = ""
+                    try {
+                        def logs = currentBuild.rawBuild.getLog(300)
                 
-                def errors = logs.findAll {
-                    it.contains("ERROR") ||
-                    it.contains("Failed") ||
-                    it.contains("Module not found") ||
-                    it.contains("Syntax error")
-                }
+                        errors = logs.findAll {
+                            it.contains("ERROR") ||
+                            it.contains("Exception") ||
+                            it.contains("BUILD FAILURE") ||
+                            it.contains("Failed") ||
+                            it.contains("Module not found") ||
+                            it.contains("Syntax error")
+                        }.join('\n')
+                
+                    } catch (e) {
+                        echo "pull logs fails: ${e}"
+                        errors = "Cannot fetch logs from Jenkins (rawBuild blocked)"
+                    }
                 
                 sendNotificationToN8n(
                     'FAILED',
