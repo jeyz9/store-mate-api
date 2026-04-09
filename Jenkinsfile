@@ -129,12 +129,21 @@ pipeline {
     
         failure {
             echo 'Build Failed!'
+            def logs = currentBuild.rawBuild.getLog(300)
+            
+            def errors = logs.findAll {
+                it.contains("ERROR") ||
+                it.contains("Failed") ||
+                it.contains("Module not found") ||
+                it.contains("Syntax error")
+            }
+            
             sendNotificationToN8n(
                 'FAILED',
                 env.STAGE_NAME ?: 'Unknown Stage',
                 'N/A',
                 'N/A',
-                currentBuild.currentResult
+                errors
             )
         }
     
