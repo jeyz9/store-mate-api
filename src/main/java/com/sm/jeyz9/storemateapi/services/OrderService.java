@@ -1,7 +1,12 @@
 package com.sm.jeyz9.storemateapi.services;
 
+import com.sm.jeyz9.storemateapi.dto.OrderDTO;
+import com.sm.jeyz9.storemateapi.models.OrderStatusName;
+
+import java.util.List;
+
 public interface OrderService {
-    void getUserOrders();
+    List<OrderDTO> getUserOrders(OrderStatusName status, String email);
     void getOrderDetails();
     void getAllOrders();
     void getOrderDetailsByModerator();
