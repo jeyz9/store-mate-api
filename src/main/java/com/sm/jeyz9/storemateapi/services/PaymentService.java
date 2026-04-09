@@ -3,17 +3,22 @@ package com.sm.jeyz9.storemateapi.services;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.Order;
+import com.sm.jeyz9.storemateapi.models.OrderAddress;
 import com.sm.jeyz9.storemateapi.models.OrderChannelName;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
+import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.repository.CartItemRepository;
+import com.sm.jeyz9.storemateapi.repository.OrderAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
+import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
@@ -30,6 +35,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,7 +45,9 @@ public class PaymentService {
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    
+    private final UserAddressRepository userAddressRepository;
+    private final OrderAddressRepository orderAddressRepository;
+
     @Value("${stripe.secret-key}")
     private String secretKey;
     
@@ -48,16 +56,15 @@ public class PaymentService {
     
     @Value("${stripe.cancel-url}")
     private String cancelUrl;
-    
-    @Value("${stripe.webhook-secret}")
-    private String endpointSecret;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
+        this.userAddressRepository = userAddressRepository;
+        this.orderAddressRepository = orderAddressRepository;
     }
 
     public String checkout() throws StripeException {
@@ -122,8 +129,6 @@ public class PaymentService {
         Stripe.apiKey = secretKey;
         Long total = (long) orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100;
         
-        System.out.println("TOTAL: " + total);
-
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount(total)
                 .setCurrency("thb")
@@ -135,6 +140,18 @@ public class PaymentService {
 
         order.setStripePaymentIntent(intent.getId());
         order.setClientSecret(intent.getClientSecret());
+
+        UserAddress userAddress = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User address not found"));
+        
+        OrderAddress orderAddress = OrderAddress.builder()
+                .id(null)
+                .streetAddress(userAddress.getStreetAddress())
+                .order(order)
+                .zipcode(userAddress.getZipcode())
+                .createdAt(LocalDateTime.now())
+                .build();
+        
+        orderAddressRepository.save(orderAddress);
         orderRepository.save(order);
 
         Map<String, String> res = new HashMap<>();
@@ -143,24 +160,62 @@ public class PaymentService {
         return res;
     }
     
-    public String handleStripeWebhook(HttpServletRequest request) throws Exception {
-        String payload = request.getReader().lines().collect(Collectors.joining());
-        String sigHeader = request.getHeader("Stripe-Signature");
-
-        Event event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
-        
-        if("payment_intent.succeeded".equals(event.getType())) {
-            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().get();
-            markAsPaid(intent.getId());
+    public void handleStripeWebhook(Event event) {
+        switch (event.getType()) {
+            case "payment_intent.succeeded":
+                handlePaymentSucceeded(event);
+                break;
+            case "payment_intent.failed":
+                handlePaymentFailed(event);
+                break;
         }
-        
-        return "success";
+    }
+
+    private void handlePaymentSucceeded(Event event) {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+
+        if (deserializer.getObject().isPresent()) {
+            PaymentIntent intent = (PaymentIntent) deserializer.getObject().get();
+
+            markAsPaid(intent.getId());
+        } else {
+            System.out.println("Deserialize failed: " + event.getId());
+        }
+    }
+
+    private void handlePaymentFailed(Event event) {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+
+        if (deserializer.getObject().isPresent()) {
+            PaymentIntent intent = (PaymentIntent) deserializer.getObject().get();
+
+            String paymentIntentId = intent.getId();
+
+            Optional<Order> optionalOrder = orderRepository.findByStripePaymentIntent(paymentIntentId);
+
+            if (optionalOrder.isEmpty()) {
+                System.out.println("Order not found: " + paymentIntentId);
+                return;
+            }
+
+            Order order = optionalOrder.get();
+
+            if (order.getStatus() == OrderStatusName.PROCESSING) {
+                return;
+            }
+
+//            if (intent.getLastPaymentError() != null) {
+//                order.setFailReason(intent.getLastPaymentError().getMessage());
+//            }
+
+            orderRepository.save(order);
+        }
     }
     
     private void markAsPaid(String clientSecret) {
         Order order = orderRepository.findByStripePaymentIntent(clientSecret).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Intent not found"));
         order.setPaidAt(LocalDateTime.now());
-        order.setStatus(OrderStatusName.PAID);
+        order.setStatus(OrderStatusName.PROCESSING);
         orderRepository.save(order);
     }
 }

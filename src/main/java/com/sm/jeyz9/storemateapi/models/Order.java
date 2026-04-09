@@ -36,7 +36,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(unique = true, nullable = true, updatable = false)
+    @Column(unique = true, nullable = false, updatable = false)
     private String orderNo;
     
     @ManyToOne
@@ -46,9 +46,8 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatusName status;
     
-    @ManyToOne
-    @JoinColumn(name = "checkout_type_id", referencedColumnName = "id")
-    private CheckoutType checkoutType;
+    @Enumerated(EnumType.STRING)
+    private CheckoutTypeName checkoutType;
     
     private String stripePaymentIntent;
     private String clientSecret;
@@ -61,6 +60,9 @@ public class Order {
     
     @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<OrderItem> orderItems;
+    
+    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<OrderAddress> orderAddresses;
     
     @PrePersist
     public void perPersist() {
