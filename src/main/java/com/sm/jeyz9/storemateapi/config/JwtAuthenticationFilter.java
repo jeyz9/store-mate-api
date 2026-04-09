@@ -34,7 +34,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String path = request.getServletPath();
-        System.out.println("PATH = " + request.getRequestURI());
         if (path.startsWith("/api/v1/stripe/webhook")) {
             filterChain.doFilter(request, response);
             return;
