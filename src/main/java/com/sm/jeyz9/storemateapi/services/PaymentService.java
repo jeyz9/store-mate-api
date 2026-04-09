@@ -116,14 +116,12 @@ public class PaymentService {
             
             cartItemRepository.delete(cartItem);
 
-            OrderItem orderItem = OrderItem.builder()
+            return OrderItem.builder()
                     .id(null)
                     .product(cartItem.getProduct())
                     .quantity(cartItem.getQuantity())
                     .order(order)
                     .build();
-            
-            return orderItemRepository.save(orderItem);
         }).toList();
 
         Stripe.apiKey = secretKey;
@@ -153,6 +151,7 @@ public class PaymentService {
         
         orderAddressRepository.save(orderAddress);
         orderRepository.save(order);
+        orderItemRepository.saveAll(orderItems);
 
         Map<String, String> res = new HashMap<>();
         res.put("clientSecret", intent.getClientSecret());
