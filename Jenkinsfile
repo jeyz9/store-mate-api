@@ -3,6 +3,22 @@ def sendNotificationToN8n(String status, String stageName, String image, String 
         withCredentials([
             string(credentialsId: 'n8n-webhook', variable: 'N8N_WEBHOOK_URL')
         ]) {
+            if (!message) {
+                try {
+                    def logs = currentBuild.rawBuild.getLog(1000)
+
+                    def errors = logs.findAll {
+                        it ==~ /(?i).*(error|exception|failed|failure|syntax|not found|compilation|unknown command).*/
+                    }
+
+                    message = errors ? errors.join("\n") : logs.takeRight(20).join("\n")
+
+                } catch (e) {
+                    echo "❌ ดึง log ไม่ได้: ${e}"
+                    message = "Cannot fetch Jenkins logs (blocked by sandbox)"
+                }
+            }
+            
             def payload = [
                 project  : env.JOB_NAME,
                 stage    : stageName,
@@ -133,24 +149,13 @@ pipeline {
         }
     
         failure {
-            script{
-                echo 'Build Failed!'
-                def logs = currentBuild.rawBuild.getLog(1000)
-                
-                def errors = logs.findAll {
-                    it ==~ /(?i).*(error|exception|failed|failure|syntax|not found|compilation|unknown command).*/
-                }
-                
-                def message = errors ? errors.join("\n") : logs.takeRight(20).join("\n")
-                
-                sendNotificationToN8n(
-                    'FAILED',
-                    env.STAGE_NAME ?: 'Unknown Stage',
-                    'N/A',
-                    'N/A',
-                    message
-                )
-            }
+            echo 'Deploy Failed!'
+            sendNotificationToN8n(
+                'FAILED',
+                env.STAGE_NAME ?: 'Unknown Stage',
+                'N/A',
+                'N/A',
+            )
         }
     
         always {
