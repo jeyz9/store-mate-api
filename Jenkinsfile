@@ -140,13 +140,8 @@ pipeline {
                         def logs = currentBuild.rawBuild.getLog(300)
                 
                         errors = logs.findAll {
-                            it.contains("ERROR") ||
-                            it.contains("Exception") ||
-                            it.contains("BUILD FAILURE") ||
-                            it.contains("Failed") ||
-                            it.contains("Module not found") ||
-                            it.contains("Syntax error")
-                        }.join('\n')
+                            it ==~ /(?i).*(error|exception|failed|failure|syntax|not found|compilation|unknown command).*/
+                        }
                 
                     } catch (e) {
                         echo "pull logs fails: ${e}"
