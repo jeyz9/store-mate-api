@@ -101,7 +101,8 @@ public class SecurityConfig {
                                 
                                 .requestMatchers(HttpMethod.DELETE, 
                                         "/api/v1/cart/items/{productId}",
-                                        "/api/v1/users/me/addresses/{id}"
+                                        "/api/v1/users/me/addresses/{id}",
+                                        "/api/v1/users/me//profile-image"
                                 ).authenticated()
                                 
                                 .anyRequest().authenticated()

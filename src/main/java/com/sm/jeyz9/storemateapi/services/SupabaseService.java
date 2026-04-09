@@ -131,4 +131,28 @@ public class SupabaseService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดในการอ่านไฟล์: " + e.getMessage());
         }
     }
+
+    @Transactional
+    public void deleteUserAvatar(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+
+        try {
+            // ตัด URL เพื่อเอาชื่อไฟล์ที่อยู่หลัง / ตัวสุดท้าย
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + userBucket + "/" + fileName;
+
+            restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
+        } catch (Exception e) {
+            System.err.println("ไม่สามารถลบไฟล์จาก Storage ได้: " + e.getMessage());
+        }
+    }
+
+    
 }
