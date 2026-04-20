@@ -1,18 +1,23 @@
 package com.sm.jeyz9.storemateapi.services;
 
+import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
+import com.sm.jeyz9.storemateapi.models.CheckoutTypeName;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderAddress;
 import com.sm.jeyz9.storemateapi.models.OrderChannelName;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
+import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.repository.CartItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
+import com.sm.jeyz9.storemateapi.repository.ProductRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.stripe.Stripe;
@@ -24,7 +29,6 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -37,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@Slf4j
 @Service
 public class PaymentService {
 
@@ -47,6 +50,7 @@ public class PaymentService {
     private final OrderItemRepository orderItemRepository;
     private final UserAddressRepository userAddressRepository;
     private final OrderAddressRepository orderAddressRepository;
+    private final ProductRepository productRepository;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
@@ -58,13 +62,14 @@ public class PaymentService {
     private String cancelUrl;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userAddressRepository = userAddressRepository;
         this.orderAddressRepository = orderAddressRepository;
+        this.productRepository = productRepository;
     }
 
     public String checkout() throws StripeException {
@@ -97,78 +102,128 @@ public class PaymentService {
     }
     
     @Transactional
-    public Map<String, String> checkoutIntent(String email, List<Long> cartItemIds) throws StripeException {
-        User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
-        
-        Order order = Order.builder()
-                .id(null)
-                .status(OrderStatusName.PENDING)
-                .user(user)
-                .createdAt(LocalDateTime.now())
-                .orderChannel(OrderChannelName.ONLINE)
-                .build();
-        
-        List<OrderItem> orderItems = cartItemIds.stream().map(c -> {
-            CartItem cartItem = cartItemRepository.findById(c).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart Item not found"));
-            if (!cartItem.getCart().getUser().getId().equals(user.getId())) {
-                throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
-            }
-            
-            cartItemRepository.delete(cartItem);
+    public Map<String, String> checkoutIntent(String email, CheckoutRequestDTO request) {
+        try {
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            return OrderItem.builder()
+            Order order = Order.builder()
                     .id(null)
-                    .product(cartItem.getProduct())
-                    .quantity(cartItem.getQuantity())
+                    .status(OrderStatusName.PENDING)
+                    .user(user)
+                    .createdAt(LocalDateTime.now())
+                    .orderChannel(OrderChannelName.ONLINE)
+                    .checkoutType(request.getCheckoutType())
+                    .build();
+
+            List<OrderItem> orderItems = request.getIds().stream().map(c -> {
+                CartItem cartItem = cartItemRepository.findById(c).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart Item not found"));
+                if (!cartItem.getCart().getUser().getId().equals(user.getId())) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
+                }
+
+                cartItemRepository.delete(cartItem);
+
+                return OrderItem.builder()
+                        .id(null)
+                        .product(cartItem.getProduct())
+                        .quantity(cartItem.getQuantity())
+                        .order(order)
+                        .build();
+            }).toList();
+
+            Map<String, String> res = new HashMap<>();
+
+            if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
+                Long total = (long) orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100;
+                PaymentIntent intent = handleStripeIntent(total);
+                order.setStripePaymentIntent(intent.getId());
+                order.setClientSecret(intent.getClientSecret());
+
+                orderRepository.save(order);
+                orderItemRepository.saveAll(orderItems);
+                handleCreateOrderAddress(user, order);
+                res.put("clientSecret", intent.getClientSecret());
+                res.put("paymentIntentId", intent.getId());
+
+                return res;
+            }
+
+            orderRepository.save(order);
+            orderItemRepository.saveAll(orderItems);
+            handleCreateOrderAddress(user, order);
+            res.put("message", "create order success");
+            return res;
+        }catch (WebException e) {
+            throw e;
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
+    }
+    
+    @Transactional
+    public Map<String, String> checkoutNow(String email, CheckoutNowRequestDTO request) {
+        try {
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+            Product product = productRepository.findById(request.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
+            if (!(product.getStock_quantity() > 0 && product.getProductStatus().getId().equals(1L) && product.getStock_quantity() >= request.getQuantity())) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "Product is unavailable");
+            }
+
+            Order order = Order.builder()
+                    .id(null)
+                    .status(OrderStatusName.PENDING)
+                    .user(user)
+                    .createdAt(LocalDateTime.now())
+                    .orderChannel(OrderChannelName.ONLINE)
+                    .checkoutType(request.getCheckoutType())
+                    .build();
+
+            OrderItem orderItem = OrderItem.builder()
+                    .id(null)
+                    .product(product)
+                    .quantity(request.getQuantity())
                     .order(order)
                     .build();
-        }).toList();
 
-        Stripe.apiKey = secretKey;
-        Long total = (long) orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100;
-        
-        PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
-                .setAmount(total)
-                .setCurrency("thb")
-                .addPaymentMethodType("card")
-                .addPaymentMethodType("promptpay")
-                .build();
+            Map<String, String> res = new HashMap<>();
 
-        PaymentIntent intent = PaymentIntent.create(params);
+            if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
+                Long total = (long) (orderItem.getProduct().getPrice() * orderItem.getQuantity()) * 100;
+                PaymentIntent intent = handleStripeIntent(total);
+                order.setStripePaymentIntent(intent.getId());
+                order.setClientSecret(intent.getClientSecret());
 
-        order.setStripePaymentIntent(intent.getId());
-        order.setClientSecret(intent.getClientSecret());
+                orderRepository.save(order);
+                orderItemRepository.save(orderItem);
+                handleCreateOrderAddress(user, order);
+                res.put("clientSecret", intent.getClientSecret());
+                res.put("paymentIntentId", intent.getId());
 
-        UserAddress userAddress = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User address not found"));
-        
-        OrderAddress orderAddress = OrderAddress.builder()
-                .id(null)
-                .streetAddress(userAddress.getStreetAddress())
-                .order(order)
-                .zipcode(userAddress.getZipcode())
-                .createdAt(LocalDateTime.now())
-                .build();
-        
-        orderAddressRepository.save(orderAddress);
-        orderRepository.save(order);
-        orderItemRepository.saveAll(orderItems);
+                return res;
+            }
 
-        Map<String, String> res = new HashMap<>();
-        res.put("clientSecret", intent.getClientSecret());
-        res.put("paymentIntentId", intent.getId());
-        return res;
+            orderRepository.save(order);
+            orderItemRepository.save(orderItem);
+            handleCreateOrderAddress(user, order);
+            res.put("message", "create order success");
+            return res;
+        }catch (WebException e) {
+            throw e;
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
     
     public void handleStripeWebhook(Event event) throws EventDataObjectDeserializationException {
-        log.info("Event type: {}", event.getType());
         switch (event.getType()) {
             case "payment_intent.succeeded":
-                log.info("Pass");
                 handlePaymentSucceeded(event);
                 break;
             case "payment_intent.failed":
                 handlePaymentFailed(event);
                 break;
+            default:
+                throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown intent " + event.getType());
         }
     }
 
@@ -181,7 +236,6 @@ public class PaymentService {
             intent = (PaymentIntent) deserializer.deserializeUnsafe();
         }
 
-        log.info("Intent id: {}", intent.getId());
         markAsPaid(intent.getId());
     }
 
@@ -219,5 +273,31 @@ public class PaymentService {
         order.setPaidAt(LocalDateTime.now());
         order.setStatus(OrderStatusName.PROCESSING);
         orderRepository.save(order);
+    }
+    
+    private PaymentIntent handleStripeIntent(Long total) throws StripeException {
+        Stripe.apiKey = secretKey;
+        PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                .setAmount(total)
+                .setCurrency("thb")
+                .addPaymentMethodType("card")
+                .addPaymentMethodType("promptpay")
+                .build();
+        
+        return PaymentIntent.create(params);
+    }
+    
+    private void handleCreateOrderAddress(User user, Order order) {
+        UserAddress userAddress = userAddressRepository.findByUserIdAndIsDefaultTrue(user.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User address not found"));
+
+        OrderAddress orderAddress = OrderAddress.builder()
+                .id(null)
+                .streetAddress(userAddress.getStreetAddress())
+                .order(order)
+                .zipcode(userAddress.getZipcode())
+                .createdAt(LocalDateTime.now())
+                .build();
+        
+        orderAddressRepository.save(orderAddress);
     }
 }
