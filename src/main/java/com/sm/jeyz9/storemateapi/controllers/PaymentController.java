@@ -1,6 +1,7 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
-import com.sm.jeyz9.storemateapi.dto.OrderRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.services.PaymentService;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -38,8 +39,13 @@ public class PaymentController {
     }
     
     @PostMapping("/orders/payments/intent")
-    public ResponseEntity<Map<String, String>> checkoutIntent(@RequestBody OrderRequestDTO request, Principal principal) throws StripeException {
-        return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request.getIds()), HttpStatus.OK);
+    public ResponseEntity<Map<String, String>> checkoutIntent(@RequestBody CheckoutRequestDTO request, Principal principal) {
+        return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request), HttpStatus.OK);
+    }
+    
+    @PostMapping("/orders/payments/now")
+    public ResponseEntity<Map<String, String>> checkoutNow(@RequestBody CheckoutNowRequestDTO request, Principal principal) {
+        return new ResponseEntity<>(paymentService.checkoutNow(principal.getName(), request), HttpStatus.OK);
     }
     
     @PostMapping("/stripe/webhook")
