@@ -134,10 +134,7 @@ public class PaymentService {
             Map<String, String> res = new HashMap<>();
 
             if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                Stripe.apiKey = secretKey;
-                Stripe.apiKey = secretKey;
                 Long total = (long) orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100;
-
                 PaymentIntent intent = handleStripeIntent(total);
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
@@ -191,9 +188,7 @@ public class PaymentService {
             Map<String, String> res = new HashMap<>();
 
             if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                Stripe.apiKey = secretKey;
                 Long total = (long) (orderItem.getProduct().getPrice() * orderItem.getQuantity()) * 100;
-
                 PaymentIntent intent = handleStripeIntent(total);
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
@@ -227,6 +222,8 @@ public class PaymentService {
             case "payment_intent.failed":
                 handlePaymentFailed(event);
                 break;
+            default:
+                throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown intent " + event.getType());
         }
     }
 
@@ -279,6 +276,7 @@ public class PaymentService {
     }
     
     private PaymentIntent handleStripeIntent(Long total) throws StripeException {
+        Stripe.apiKey = secretKey;
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount(total)
                 .setCurrency("thb")
