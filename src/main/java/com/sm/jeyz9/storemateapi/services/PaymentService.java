@@ -120,7 +120,7 @@ public class PaymentService {
                 if (!cartItem.getCart().getUser().getId().equals(user.getId())) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
                 }
-
+                
                 cartItemRepository.delete(cartItem);
 
                 return OrderItem.builder()
@@ -146,6 +146,8 @@ public class PaymentService {
                 res.put("paymentIntentId", intent.getId());
 
                 return res;
+            }else if(request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+                order.setStatus(OrderStatusName.PROCESSING);
             }
 
             orderRepository.save(order);
@@ -200,6 +202,8 @@ public class PaymentService {
                 res.put("paymentIntentId", intent.getId());
 
                 return res;
+            }else if(request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+                order.setStatus(OrderStatusName.PROCESSING);
             }
 
             orderRepository.save(order);
