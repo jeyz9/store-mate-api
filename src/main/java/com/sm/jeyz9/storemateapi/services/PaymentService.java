@@ -144,6 +144,7 @@ public class PaymentService {
                 orderRepository.save(order);
                 orderItemRepository.saveAll(orderItems);
                 handleCreateOrderAddress(user, order);
+                res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
 
@@ -200,6 +201,7 @@ public class PaymentService {
                 orderRepository.save(order);
                 orderItemRepository.save(orderItem);
                 handleCreateOrderAddress(user, order);
+                res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
 
