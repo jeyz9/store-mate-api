@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping(value = "/api/v1/orders")
@@ -33,9 +34,9 @@ public class OrderController {
         return new ResponseEntity<>(orderService.getUserOrders(status, principal.getName()), HttpStatus.OK);
     }
     
-    @GetMapping("/{orderId}/status")
-    public ResponseEntity<String> getOrderStatus(@PathVariable("orderId") Long orderId) {
-        return new ResponseEntity<>(orderService.getOrderStatus(orderId), HttpStatus.OK);
+    @GetMapping("/{orderNo}/status")
+    public ResponseEntity<Map<String, String>> getOrderStatus(@PathVariable("orderNo") String orderNo) {
+        return new ResponseEntity<>(Map.of("status", orderService.getOrderStatus(orderNo)), HttpStatus.OK);
     }
 
     @GetMapping("/test-ws")
