@@ -51,6 +51,7 @@ public class PaymentService {
     private final UserAddressRepository userAddressRepository;
     private final OrderAddressRepository orderAddressRepository;
     private final ProductRepository productRepository;
+    private final NotificationService notificationService;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
@@ -62,7 +63,7 @@ public class PaymentService {
     private String cancelUrl;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -70,6 +71,7 @@ public class PaymentService {
         this.userAddressRepository = userAddressRepository;
         this.orderAddressRepository = orderAddressRepository;
         this.productRepository = productRepository;
+        this.notificationService = notificationService;
     }
 
     public String checkout() throws StripeException {
@@ -239,7 +241,7 @@ public class PaymentService {
         } else {
             intent = (PaymentIntent) deserializer.deserializeUnsafe();
         }
-
+        
         markAsPaid(intent.getId());
     }
 
@@ -267,6 +269,7 @@ public class PaymentService {
 //            if (intent.getLastPaymentError() != null) {
 //                order.setFailReason(intent.getLastPaymentError().getMessage());
 //            }
+            notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
 
             orderRepository.save(order);
         }
@@ -276,6 +279,7 @@ public class PaymentService {
         Order order = orderRepository.findByStripePaymentIntent(clientSecret).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Intent not found"));
         order.setPaidAt(LocalDateTime.now());
         order.setStatus(OrderStatusName.PROCESSING);
+        notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
         orderRepository.save(order);
     }
     

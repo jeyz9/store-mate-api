@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface OrderService {
     List<OrderDTO> getUserOrders(OrderStatusName status, String email);
+    String getOrderStatus(Long orderId);
     void getOrderDetails();
     void getAllOrders();
     void getOrderDetailsByModerator();
