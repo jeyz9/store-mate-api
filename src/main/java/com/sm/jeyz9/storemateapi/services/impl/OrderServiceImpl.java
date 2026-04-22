@@ -47,6 +47,11 @@ public class OrderServiceImpl implements OrderService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
     }
+    
+    @Override
+    public String getOrderStatus(Long orderId) {
+        return orderRepository.findOrderStatusById(orderId);
+    }
 
     @Override
     public void getOrderDetails() {
