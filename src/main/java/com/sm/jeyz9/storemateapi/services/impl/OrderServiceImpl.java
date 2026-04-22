@@ -49,8 +49,8 @@ public class OrderServiceImpl implements OrderService {
     }
     
     @Override
-    public String getOrderStatus(Long orderId) {
-        return orderRepository.findOrderStatusById(orderId);
+    public String getOrderStatus(String orderNo) {
+        return orderRepository.findOrderStatusByOrderNo(orderNo);
     }
 
     @Override
