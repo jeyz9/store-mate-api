@@ -32,16 +32,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         "https://api.store-mate-api.me",
                         "https://store-mate-api.onrender.com",
                         "https://storemate-final.vercel.app"
-                ).addInterceptors(authInterceptor)
-                .setHandshakeHandler(new DefaultHandshakeHandler() {
-                    @Override
-                    protected Principal determineUser(ServerHttpRequest request,
-                                                      WebSocketHandler wsHandler,
-                                                      Map<String, Object> attributes){
-                        String email = (String) attributes.get("email");
-                        return () -> email;
-                    }
-                })
+                )
                 .withSockJS();
     }
     
