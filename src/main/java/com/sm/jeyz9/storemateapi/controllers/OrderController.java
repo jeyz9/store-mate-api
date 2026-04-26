@@ -2,7 +2,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
-import com.sm.jeyz9.storemateapi.services.NotificationService;
+import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,12 +22,12 @@ import java.util.Map;
 @RequestMapping(value = "/api/v1/orders")
 public class OrderController {
     private final OrderService orderService;
-    private final NotificationService notificationService;
+    private final MessagingService messagingService;
 
     @Autowired
-    public OrderController(OrderService orderService, NotificationService notificationService) {
+    public OrderController(OrderService orderService, MessagingService messagingService) {
         this.orderService = orderService;
-        this.notificationService = notificationService;
+        this.messagingService = messagingService;
     }
     
     @GetMapping
@@ -42,6 +42,6 @@ public class OrderController {
 
     @GetMapping("/test-ws")
     public void testWs(@RequestPart("email") String email) {
-        notificationService.sendToUser(email, "TEST_MESSAGE");
+        messagingService.sendToUser(email, "TEST_MESSAGE");
     }
 }

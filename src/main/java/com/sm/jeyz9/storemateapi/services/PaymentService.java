@@ -1,6 +1,5 @@
 package com.sm.jeyz9.storemateapi.services;
 
-import com.sm.jeyz9.storemateapi.config.AuthInterceptor;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
@@ -54,7 +53,7 @@ public class PaymentService {
     private final UserAddressRepository userAddressRepository;
     private final OrderAddressRepository orderAddressRepository;
     private final ProductRepository productRepository;
-    private final NotificationService notificationService;
+    private final MessagingService messagingService;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
@@ -66,7 +65,7 @@ public class PaymentService {
     private String cancelUrl;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, NotificationService notificationService) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -74,7 +73,7 @@ public class PaymentService {
         this.userAddressRepository = userAddressRepository;
         this.orderAddressRepository = orderAddressRepository;
         this.productRepository = productRepository;
-        this.notificationService = notificationService;
+        this.messagingService = messagingService;
     }
 
     public String checkout() throws StripeException {
@@ -274,7 +273,7 @@ public class PaymentService {
 //            if (intent.getLastPaymentError() != null) {
 //                order.setFailReason(intent.getLastPaymentError().getMessage());
 //            }
-            notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
+            messagingService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
 
             orderRepository.save(order);
         }
@@ -286,7 +285,7 @@ public class PaymentService {
         order.setStatus(OrderStatusName.PROCESSING);
         // DEBUG
         log.info("Send to user");
-        notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
+        messagingService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
         orderRepository.save(order);
     }
     
