@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
@@ -40,7 +41,7 @@ public class OrderController {
     }
 
     @GetMapping("/test-ws")
-    public void testWs() {
-        notificationService.sendToUser("test2@gmail.com", "TEST_MESSAGE");
+    public void testWs(@RequestPart("email") String email) {
+        notificationService.sendToUser(email, "TEST_MESSAGE");
     }
 }
