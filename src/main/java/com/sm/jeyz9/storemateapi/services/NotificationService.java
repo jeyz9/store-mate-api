@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 public class NotificationService {
     private final SimpMessagingTemplate messagingTemplate;
@@ -12,12 +15,10 @@ public class NotificationService {
     public NotificationService(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
-    
-    public void sendToUser(String email, String message) {
-        messagingTemplate.convertAndSendToUser(
-                email,
-                "/queue/notifications",
-                message
-        );
+
+    public void sendToUser(String email, String status) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("paymentStatus", status);
+        messagingTemplate.convertAndSendToUser(email, "/queue/notifications", payload);
     }
 }

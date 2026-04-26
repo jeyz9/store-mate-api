@@ -53,6 +53,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests((authorize) -> 
                         authorize
+                                .requestMatchers("/ws/**").permitAll()
                                 .requestMatchers(HttpMethod.GET,
                                         "/v3/api-docs/**",
                                         "/swagger-ui.html",
@@ -63,8 +64,7 @@ public class SecurityConfig {
                                         "/api/v1/users/me/address-dropdown",
                                         
                                         // TODO: for test
-                                        "/ws/**",
-                                        "/app/**",
+//                                        "/app/**",
                                         "/api/v1/orders/test-ws"
                                 ).permitAll()
                                 .requestMatchers(HttpMethod.POST,

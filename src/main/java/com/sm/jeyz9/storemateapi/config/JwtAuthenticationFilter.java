@@ -26,6 +26,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getServletPath().startsWith("/ws");
+    }
     
     @Override
     protected void doFilterInternal(
@@ -35,6 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String path = request.getServletPath();
         if (path.startsWith("/api/v1/stripe/webhook")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (path.startsWith("/ws")) {
             filterChain.doFilter(request, response);
             return;
         }
