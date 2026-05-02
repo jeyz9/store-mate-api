@@ -136,7 +136,10 @@ public class PaymentService {
             Map<String, String> res = new HashMap<>();
 
             if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                Long total = (long) orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100;
+                long total = (long) (orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100);
+                if (total < 1) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
+                }
                 PaymentIntent intent = handleStripeIntent(total);
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
@@ -193,7 +196,10 @@ public class PaymentService {
             Map<String, String> res = new HashMap<>();
 
             if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                Long total = (long) (orderItem.getProduct().getPrice() * orderItem.getQuantity()) * 100;
+                long total = (long) ((orderItem.getProduct().getPrice() * orderItem.getQuantity()) * 100);
+                if (total < 1) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
+                }
                 PaymentIntent intent = handleStripeIntent(total);
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
