@@ -22,5 +22,5 @@ public class OrderDTO {
     private List<OrderAddressDTO> orderAddress;
     private List<OrderItemDTO> orderItems;
     private Double total;
-    private LocalDateTime paidAt;
+    private LocalDateTime createdAt;
 }

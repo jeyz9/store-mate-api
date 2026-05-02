@@ -104,7 +104,7 @@ public class OrderServiceImpl implements OrderService {
                         .status(o.getStatus().toString())
                         .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
                         .total(o.getOrderItems().stream().mapToDouble(oi -> oi.getQuantity() * oi.getProduct().getPrice()).sum())
-                        .paidAt(o.getPaidAt())
+                        .createdAt(o.getCreatedAt())
                         .build()
         ).toList();
     }
