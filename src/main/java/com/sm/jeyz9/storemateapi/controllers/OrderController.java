@@ -1,6 +1,7 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.services.NotificationService;
 import com.sm.jeyz9.storemateapi.services.OrderService;
@@ -38,6 +39,11 @@ public class OrderController {
     @GetMapping("/{orderNo}/status")
     public ResponseEntity<Map<String, String>> getOrderStatus(@PathVariable("orderNo") String orderNo) {
         return new ResponseEntity<>(Map.of("status", orderService.getOrderStatus(orderNo)), HttpStatus.OK);
+    }
+    
+    @GetMapping("/{orderNo}")
+    public ResponseEntity<OrderDetailsDTO> getOrderDetails(@PathVariable("orderNo") String orderNo, Principal principal){
+        return ResponseEntity.ok(orderService.getOrderDetails(principal.getName(), orderNo));
     }
 
     @GetMapping("/test-ws")
