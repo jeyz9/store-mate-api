@@ -1,6 +1,5 @@
 package com.sm.jeyz9.storemateapi.services;
 
-import com.sm.jeyz9.storemateapi.config.AuthInterceptor;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
@@ -30,7 +29,6 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -43,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@Slf4j
 @Service
 public class PaymentService {
 
@@ -271,9 +268,6 @@ public class PaymentService {
                 return;
             }
 
-//            if (intent.getLastPaymentError() != null) {
-//                order.setFailReason(intent.getLastPaymentError().getMessage());
-//            }
             notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
 
             orderRepository.save(order);
@@ -284,8 +278,6 @@ public class PaymentService {
         Order order = orderRepository.findByStripePaymentIntent(clientSecret).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Intent not found"));
         order.setPaidAt(LocalDateTime.now());
         order.setStatus(OrderStatusName.PROCESSING);
-        // DEBUG
-        log.info("Send to user");
         notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
         orderRepository.save(order);
     }
