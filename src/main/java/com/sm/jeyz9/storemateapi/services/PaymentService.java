@@ -2,6 +2,7 @@ package com.sm.jeyz9.storemateapi.services;
 
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.CheckoutTypeName;
@@ -11,6 +12,8 @@ import com.sm.jeyz9.storemateapi.models.OrderChannelName;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.Product;
+import com.sm.jeyz9.storemateapi.models.RefundRequest;
+import com.sm.jeyz9.storemateapi.models.RefundStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.UserAddress;
 import com.sm.jeyz9.storemateapi.repository.CartItemRepository;
@@ -18,6 +21,7 @@ import com.sm.jeyz9.storemateapi.repository.OrderAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductRepository;
+import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.stripe.Stripe;
@@ -54,6 +58,7 @@ public class PaymentService {
     private final OrderAddressRepository orderAddressRepository;
     private final ProductRepository productRepository;
     private final NotificationService notificationService;
+    private final RefundRequestRepository refundRequestRepository;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
@@ -65,7 +70,7 @@ public class PaymentService {
     private String cancelUrl;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, NotificationService notificationService) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, NotificationService notificationService, RefundRequestRepository refundRequestRepository) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -74,6 +79,7 @@ public class PaymentService {
         this.orderAddressRepository = orderAddressRepository;
         this.productRepository = productRepository;
         this.notificationService = notificationService;
+        this.refundRequestRepository = refundRequestRepository;
     }
 
     public String checkout() throws StripeException {
@@ -235,19 +241,33 @@ public class PaymentService {
             User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
             Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
             long amount = (long) (order.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
-    
+
             Stripe.apiKey = secretKey;
             RefundCreateParams params = RefundCreateParams.builder()
                     .setPaymentIntent(order.getStripePaymentIntent())
                     .setAmount(amount)
                     .build();
             Refund.create(params);
-            return Map.of("Status", "REFUND");
+            return Map.of("status", "REFUND");
         }catch (WebException e) {
             throw e;
         }catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
+    }
+    
+    public String sendRefundRequest(RefundRequestDTO request, String email) {
+        User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+        Order order = orderRepository.findOrderByOrderNoAndUserId(request.getOrderNo(), user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
+        RefundRequest refund = RefundRequest.builder()
+                .id(null)
+                .order(order)
+                .user(user)
+                .status(RefundStatusName.PENDING)
+                .requestedAt(LocalDateTime.now())
+                .build();
+        refundRequestRepository.save(refund);
+        return "Send refund successfully";
     }
     
     public void handleStripeWebhook(Event event) throws EventDataObjectDeserializationException {
