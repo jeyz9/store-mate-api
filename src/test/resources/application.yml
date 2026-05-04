@@ -7,8 +7,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: create-drop
     show-sql: false
+  
+  flyway:
+    enabled: false
 
 jwt-secret: test-secret
 jwt-expiration: 60000
