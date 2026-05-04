@@ -142,7 +142,7 @@ public class PaymentService {
                 if (total < 1) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
                 }
-                PaymentIntent intent = handleStripeIntent(total);
+                PaymentIntent intent = handleStripeIntent(total, user.getEmail());
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
 
@@ -202,7 +202,7 @@ public class PaymentService {
                 if (total < 1) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
                 }
-                PaymentIntent intent = handleStripeIntent(total);
+                PaymentIntent intent = handleStripeIntent(total, user.getEmail());
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
 
@@ -310,13 +310,14 @@ public class PaymentService {
         orderRepository.save(order);
     }
     
-    private PaymentIntent handleStripeIntent(Long total) throws StripeException {
+    private PaymentIntent handleStripeIntent(Long total, String email) throws StripeException {
         Stripe.apiKey = secretKey;
         PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                 .setAmount(total)
                 .setCurrency("thb")
                 .addPaymentMethodType("card")
                 .addPaymentMethodType("promptpay")
+                .setReceiptEmail(email)
                 .build();
         
         return PaymentIntent.create(params);
