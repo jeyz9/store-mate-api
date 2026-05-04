@@ -2,12 +2,14 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
 import com.sm.jeyz9.storemateapi.services.PaymentService;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.Refund;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -53,6 +55,11 @@ public class PaymentController {
     @PostMapping("/orders/test/refund")
     public ResponseEntity<Map<String, String>> refund(@RequestParam("orderNo") String orderNo, Principal principal) {
         return ResponseEntity.ok(paymentService.refund(orderNo, principal.getName()));
+    }
+    
+    @PostMapping("/orders/refund/send")
+    public ResponseEntity<String> sendRefund(@RequestBody @Valid RefundRequestDTO request, Principal principal) {
+        return new ResponseEntity<>(paymentService.sendRefundRequest(request, principal.getName()), HttpStatus.CREATED);
     }
     
     @PostMapping("/stripe/webhook")
