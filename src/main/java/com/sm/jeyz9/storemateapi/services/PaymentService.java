@@ -26,8 +26,10 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.Refund;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.RefundCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -221,6 +223,25 @@ public class PaymentService {
             handleCreateOrderAddress(user, order);
             res.put("message", "create order success");
             return res;
+        }catch (WebException e) {
+            throw e;
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
+    }
+    
+    public Refund refund(String orderNo, String email) {
+        try{
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+            Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
+            long amount = (long) (order.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
+    
+            RefundCreateParams params = RefundCreateParams.builder()
+                    .setPaymentIntent(order.getStripePaymentIntent())
+                    .setAmount(amount)
+                    .build();
+            
+            return Refund.create(params);
         }catch (WebException e) {
             throw e;
         }catch (Exception e) {
