@@ -236,6 +236,7 @@ public class PaymentService {
             Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
             long amount = (long) (order.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
     
+            Stripe.apiKey = secretKey;
             RefundCreateParams params = RefundCreateParams.builder()
                     .setPaymentIntent(order.getStripePaymentIntent())
                     .setAmount(amount)
