@@ -230,7 +230,7 @@ public class PaymentService {
         }
     }
     
-    public Refund refund(String orderNo, String email) {
+    public Map<String, String> refund(String orderNo, String email) {
         try{
             User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
             Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
@@ -240,8 +240,8 @@ public class PaymentService {
                     .setPaymentIntent(order.getStripePaymentIntent())
                     .setAmount(amount)
                     .build();
-            
-            return Refund.create(params);
+            Refund.create(params);
+            return Map.of("Status", "REFUND");
         }catch (WebException e) {
             throw e;
         }catch (Exception e) {

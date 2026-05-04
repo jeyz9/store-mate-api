@@ -51,7 +51,7 @@ public class PaymentController {
     }
     
     @PostMapping("/orders/test/refund")
-    public ResponseEntity<Refund> refund(@RequestParam("orderNo") String orderNo, Principal principal) {
+    public ResponseEntity<Map<String, String>> refund(@RequestParam("orderNo") String orderNo, Principal principal) {
         return ResponseEntity.ok(paymentService.refund(orderNo, principal.getName()));
     }
     
