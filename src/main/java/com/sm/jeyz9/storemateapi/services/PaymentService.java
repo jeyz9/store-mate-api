@@ -264,6 +264,8 @@ public class PaymentService {
                 .order(order)
                 .user(user)
                 .status(RefundStatusName.PENDING)
+                .reason(request.getReason())
+                .description(request.getDescription())
                 .requestedAt(LocalDateTime.now())
                 .build();
         refundRequestRepository.save(refund);
