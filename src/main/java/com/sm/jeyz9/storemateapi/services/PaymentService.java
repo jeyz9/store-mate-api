@@ -283,7 +283,7 @@ public class PaymentService {
     }
     
     @Transactional
-    public String refundApprove(Long refundId) throws StripeException {
+    public String refundApprove(Long refundId) {
         RefundRequest refundRequest = refundRequestRepository.findById(refundId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
         
         if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
@@ -294,12 +294,18 @@ public class PaymentService {
         refundRequestRepository.save(refundRequest);
 
         long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
-        Stripe.apiKey = secretKey;
-        RefundCreateParams params = RefundCreateParams.builder()
-                .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
-                .setAmount(amount)
-                .build();
-        Refund.create(params);
+        
+        try {
+            Stripe.apiKey = secretKey;
+            RefundCreateParams params = RefundCreateParams.builder()
+                    .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
+                    .setAmount(amount)
+                    .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
+                    .build();
+            Refund.create(params);
+        }catch (StripeException e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
         return "Approve refund request success";
     }
 

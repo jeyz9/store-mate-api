@@ -64,7 +64,7 @@ public class PaymentController {
     }
     
     @GetMapping("/payment/refund-request/{id}/approve")
-    public ResponseEntity<String> refundApprove(@PathVariable("id") Long id) throws StripeException {
+    public ResponseEntity<String> refundApprove(@PathVariable("id") Long id) {
         return new ResponseEntity<>(paymentService.refundApprove(id), HttpStatus.OK);
     }
 
