@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -14,13 +13,12 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class OrderDTO {
+public class OrderDetailsDTO {
     private Long id;
     private String orderNo;
     private String status;
-    private String checkoutType;
-    private List<OrderAddressDTO> orderAddress;
     private List<OrderItemDTO> orderItems;
+    private OrderRecipientDTO orderRecipient;
     private Double total;
-    private LocalDateTime createdAt;
+    private String checkoutType;
 }

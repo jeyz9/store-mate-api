@@ -2,7 +2,9 @@ package com.sm.jeyz9.storemateapi.services.impl;
 
 import com.sm.jeyz9.storemateapi.dto.OrderAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderItemDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
@@ -54,8 +56,16 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void getOrderDetails() {
-
+    public OrderDetailsDTO getOrderDetails(String email, String orderNo) {
+        try {
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+            Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
+            return mapToOrderDetailsDTO(order);
+        }catch (WebException e) {
+            throw e;
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
 
     @Override
@@ -76,6 +86,39 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void printShippingLabel() {
 
+    }
+    
+    private OrderDetailsDTO mapToOrderDetailsDTO(Order order) {
+        List<OrderItemDTO> orderItemDTO = order.getOrderItems().stream().map(
+                oi -> OrderItemDTO.builder()
+                        .id(oi.getId())
+                        .productName(oi.getProduct().getName())
+                        .imageUrl(oi.getProduct().getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null))
+                        .price(oi.getProduct().getPrice())
+                        .quantity(oi.getQuantity())
+                        .subTotal(oi.getProduct().getPrice() * oi.getQuantity())
+                        .build()
+        ).toList();
+        OrderRecipientDTO orderRecipientDTO = order.getOrderAddresses().stream().findFirst().map(oa ->
+                OrderRecipientDTO.builder()
+                        .recipientName(order.getUser().getName())
+                        .phone(order.getUser().getPhone())
+                        .streetAddress(oa.getStreetAddress())
+                        .subdistrict(oa.getZipcode().getSubdistrict().getName())
+                        .district(oa.getZipcode().getDistrict().getName())
+                        .province(oa.getZipcode().getProvince().getName())
+                        .zipcode(oa.getZipcode().getZipcode())
+                        .build()
+        ).orElse(null);
+        return OrderDetailsDTO.builder()
+                .id(order.getId())
+                .orderNo(order.getOrderNo())
+                .status(order.getStatus().name())
+                .orderItems(orderItemDTO)
+                .orderRecipient(orderRecipientDTO)
+                .total(order.getOrderItems().stream().mapToDouble(oi -> oi.getQuantity() * oi.getProduct().getPrice()).sum())
+                .checkoutType(order.getCheckoutType() != null ? order.getCheckoutType().name() : null)
+                .build();
     }
     
     private List<OrderDTO> mapToDTO(List<Order> order) {
@@ -104,7 +147,7 @@ public class OrderServiceImpl implements OrderService {
                         .status(o.getStatus().toString())
                         .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
                         .total(o.getOrderItems().stream().mapToDouble(oi -> oi.getQuantity() * oi.getProduct().getPrice()).sum())
-                        .paidAt(o.getPaidAt())
+                        .createdAt(o.getCreatedAt())
                         .build()
         ).toList();
     }
