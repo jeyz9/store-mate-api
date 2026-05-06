@@ -282,6 +282,37 @@ public class PaymentService {
         return "Send refund successfully";
     }
     
+    @Transactional
+    public String refundApprove(Long refundId) throws StripeException {
+        RefundRequest refundRequest = refundRequestRepository.findById(refundId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
+        
+        if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
+            throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
+        }
+        refundRequest.setApprovedAt(LocalDateTime.now());
+        refundRequest.setStatus(RefundStatusName.APPROVED);
+        refundRequestRepository.save(refundRequest);
+
+        long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
+        Stripe.apiKey = secretKey;
+        RefundCreateParams params = RefundCreateParams.builder()
+                .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
+                .setAmount(amount)
+                .build();
+        Refund.create(params);
+        return "Approve refund request success";
+    }
+
+    public String refundReject(Long refundId) {
+        RefundRequest refundRequest = refundRequestRepository.findById(refundId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
+        if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
+            throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't rejected");
+        }
+        refundRequest.setStatus(RefundStatusName.REJECTED);
+        refundRequestRepository.save(refundRequest);
+        return "Reject refund request success";
+    }
+    
     public void handleStripeWebhook(Event event) throws EventDataObjectDeserializationException {
         switch (event.getType()) {
             case "payment_intent.succeeded":
