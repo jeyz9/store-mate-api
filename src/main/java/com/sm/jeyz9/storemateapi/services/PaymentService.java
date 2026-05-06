@@ -57,7 +57,7 @@ public class PaymentService {
     private final UserAddressRepository userAddressRepository;
     private final OrderAddressRepository orderAddressRepository;
     private final ProductRepository productRepository;
-    private final NotificationService notificationService;
+    private final MessagingService messagingService;
     private final RefundRequestRepository refundRequestRepository;
 
     @Value("${stripe.secret-key}")
@@ -70,7 +70,7 @@ public class PaymentService {
     private String cancelUrl;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, NotificationService notificationService, RefundRequestRepository refundRequestRepository) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -78,7 +78,7 @@ public class PaymentService {
         this.userAddressRepository = userAddressRepository;
         this.orderAddressRepository = orderAddressRepository;
         this.productRepository = productRepository;
-        this.notificationService = notificationService;
+        this.messagingService = messagingService;
         this.refundRequestRepository = refundRequestRepository;
     }
 
@@ -365,7 +365,7 @@ public class PaymentService {
                 return;
             }
 
-            notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
+            messagingService.sendToUser(order.getUser().getEmail(), "PAYMENT_FAILED");
 
             orderRepository.save(order);
         }
@@ -375,7 +375,7 @@ public class PaymentService {
         Order order = orderRepository.findByStripePaymentIntent(clientSecret).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Intent not found"));
         order.setPaidAt(LocalDateTime.now());
         order.setStatus(OrderStatusName.PROCESSING);
-        notificationService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
+        messagingService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
         orderRepository.save(order);
     }
     

@@ -8,11 +8,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
-public class NotificationService {
+public class MessagingService {
     private final SimpMessagingTemplate messagingTemplate;
     
     @Autowired
-    public NotificationService(SimpMessagingTemplate messagingTemplate) {
+    public MessagingService(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
     }
 
