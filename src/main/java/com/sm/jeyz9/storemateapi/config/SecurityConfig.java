@@ -84,7 +84,8 @@ public class SecurityConfig {
                                         "/api/v1/cart/items",
                                         "/api/v1/users/me/overview",
                                         "/api/v1/users/me/addresses",
-                                        "/api/v1/users/me/addresses/default")
+                                        "/api/v1/users/me/addresses/default",
+                                        "/api/v1/owner/store")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,
@@ -95,7 +96,8 @@ public class SecurityConfig {
 
                                 .requestMatchers(HttpMethod.PUT,
                                         "/api/v1/users/me/overview",
-                                        "/api/v1/users/me/addresses/{id}")
+                                        "/api/v1/users/me/addresses/{id}",
+                                        "/api/v1/owner/store/{storeId}")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
