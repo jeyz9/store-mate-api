@@ -16,4 +16,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByStripePaymentIntent(String stripePaymentIntent);
 
     List<Order> findAllByUser(User user);
+    
+    @Query(value = """
+        SELECT o.status FROM orders o WHERE o.order_no = :orderNo;
+    """, nativeQuery = true)
+    String findOrderStatusByOrderNo(String orderNo);
+    
+    @Query(value = """
+        SELECT * FROM orders o WHERE o.order_no = :orderNo AND o.user_id = :userId;
+    """, nativeQuery = true)
+    Optional<Order> findOrderByOrderNoAndUserId(String orderNo, Long userId);
 }

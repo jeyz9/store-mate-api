@@ -66,6 +66,7 @@ public class AuthServiceImpl implements AuthService {
                     .phone(request.getPhone())
                     .password(passwordEncoder.encode(request.getPassword()))
                     .roles(roles)
+                    .createdAt(LocalDateTime.now())
                     .build();
             userRepository.save(user);
             return "Register successfully";

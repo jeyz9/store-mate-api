@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.config;
 
+import org.flywaydb.core.Flyway;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.sql.DataSource;
 import java.util.List;
 
 @Configuration
@@ -39,8 +41,8 @@ public class WebConfig implements WebMvcConfigurer {
                 "https://store-mate-api.onrender.com",
                 "https://storemate-final.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
 
@@ -48,5 +50,15 @@ public class WebConfig implements WebMvcConfigurer {
                 new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    @Bean
+    public Flyway flyway(DataSource dataSource) {
+        Flyway flyway = Flyway.configure()
+                .dataSource(dataSource)
+                .baselineOnMigrate(true)
+                .load();
+        flyway.migrate();
+        return flyway;
     }
 }
