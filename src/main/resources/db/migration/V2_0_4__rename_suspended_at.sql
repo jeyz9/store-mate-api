@@ -1,1 +1,0 @@
-ALTER TABLE users RENAME suspended_at TO suspend_at;
