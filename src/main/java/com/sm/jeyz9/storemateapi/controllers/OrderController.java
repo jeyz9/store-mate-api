@@ -52,7 +52,7 @@ public class OrderController {
     }
     
     @PutMapping("/moderator/orders/{orderNo}/change-status")
-    @Operation(summary = """
+    @Operation(description = """
         PENDING: รอดำเนินการ, รอชำระเงิน
         PROCESSING: ที่ต้องจัดส่ง
         RECEIVE: ที่ต้องได้รับ
