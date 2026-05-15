@@ -7,16 +7,20 @@ import com.sm.jeyz9.storemateapi.dto.OrderItemDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
+import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
+import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -24,11 +28,13 @@ import java.util.stream.Stream;
 public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.orderStatusHistoryRepository = orderStatusHistoryRepository;
     }
 
     @Override
@@ -79,8 +85,24 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void changeOrderStatus() {
+    @Transactional
+    public String changeOrderStatus(String orderNo, String status, String email) {
+        User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+        Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        OrderStatusName statusName = OrderStatusName.valueOf(status);
+        order.setStatus(statusName);
+        orderRepository.save(order);
 
+        OrderStatusHistory orderStatusHistory = OrderStatusHistory.builder()
+                .id(null)
+                .user(user)
+                .order(order)
+                .status(statusName)
+                .createdAt(LocalDateTime.now())
+                .build();
+        
+        orderStatusHistoryRepository.save(orderStatusHistory);
+        return "Update status successfully";
     }
 
     @Override

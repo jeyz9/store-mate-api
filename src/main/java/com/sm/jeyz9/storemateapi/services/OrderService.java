@@ -12,6 +12,6 @@ public interface OrderService {
     OrderDetailsDTO getOrderDetails(String email, String orderNo);
     void getAllOrders();
     void getOrderDetailsByModerator();
-    void changeOrderStatus();
+    String changeOrderStatus(String orderNo, String status, String email);
     void printShippingLabel();
 }
