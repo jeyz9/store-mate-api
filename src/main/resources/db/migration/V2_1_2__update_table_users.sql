@@ -1,2 +1,2 @@
-ALTER TABLE users DROP COLUMN suspension_reason;
-ALTER TABLE users ADD COLUMN line_id VARCHAR(255);
+ALTER TABLE users DROP COLUMN IF EXISTS suspension_reason;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS line_id VARCHAR(255);
