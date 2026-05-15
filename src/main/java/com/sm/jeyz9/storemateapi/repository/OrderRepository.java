@@ -26,4 +26,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT * FROM orders o WHERE o.order_no = :orderNo AND o.user_id = :userId;
     """, nativeQuery = true)
     Optional<Order> findOrderByOrderNoAndUserId(String orderNo, Long userId);
+
+    @Query(value = """
+        SELECT * FROM orders o WHERE o.order_no = :orderNo;
+    """, nativeQuery = true)
+    Optional<Order> findOneByOrderNo(String orderNo);
 }
