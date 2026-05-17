@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Builder
 public class OrderModDTO {
+    private Long id;
     private String orderNo;
     private String recipientName;
     private String phone;
