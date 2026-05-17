@@ -4,7 +4,9 @@ import com.sm.jeyz9.storemateapi.dto.OrderAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderItemDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
+import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
@@ -16,11 +18,16 @@ import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.print.Pageable;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -75,8 +82,45 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void getAllOrders() {
-
+    public List<OrderModDTO> getAllOrders(String keyword, LocalDate startDate, LocalDate endDate, String period) {
+        List<Order> orders = orderRepository.findAll();
+        Stream<Order> stream = orders.stream();
+        if(keyword != null && !keyword.trim().isBlank()) {
+            stream = stream.filter(o -> o.getUser().getName().toLowerCase().contains(keyword.toLowerCase()) || o.getUser().getPhone().equals(keyword));
+        }
+        
+        if(startDate != null) {
+            stream = stream.filter(o -> !o.getCreatedAt().isBefore(startDate.atStartOfDay()));
+        }
+        
+        if(endDate != null) {
+            stream = stream.filter(o -> !o.getCreatedAt().isAfter(endDate.atTime(LocalTime.MAX)));
+        }
+        
+        if(period != null && !period.trim().isBlank()) {
+            LocalDateTime now = LocalDateTime.now();
+            
+            switch (period.toUpperCase()) {
+                case "TODAY" -> {
+                    LocalDate today = LocalDate.now();
+                    stream = stream.filter(o -> o.getCreatedAt().toLocalDate().isEqual(today));
+                }
+                
+                case "WEEK" -> {
+                    LocalDateTime startOfWeek = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
+                    stream = stream.filter(o -> !o.getCreatedAt().isBefore(startOfWeek));
+                }
+                
+                case "MONTH" -> {
+                    LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+                    stream = stream.filter(o -> !o.getCreatedAt().isBefore(startOfMonth));
+                }
+                
+                default -> throw new WebException(HttpStatus.BAD_REQUEST, "Invalid period");
+            }
+        }
+        
+        return mapToOrderModDTO(stream.toList());
     }
 
     @Override
@@ -172,5 +216,20 @@ public class OrderServiceImpl implements OrderService {
                         .createdAt(o.getCreatedAt())
                         .build()
         ).toList();
+    }
+    
+    private List<OrderModDTO> mapToOrderModDTO(List<Order> orders) {
+        return orders.stream().map(o -> {
+            Double total = o.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum();
+            return OrderModDTO.builder()
+                    .orderNo(o.getOrderNo())
+                    .recipientName(o.getUser().getName())
+                    .phone(o.getUser().getPhone())
+                    .createdAt(o.getCreatedAt())
+                    .total(total)
+                    .shippingFrom(o.getOrderChannel() != null ? o.getOrderChannel().name() : null)
+                    .status(o.getStatus() != null ? o.getStatus().name() : null)
+                    .build();
+        }).toList();
     }
 }
