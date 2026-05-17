@@ -28,6 +28,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -98,8 +99,6 @@ public class OrderServiceImpl implements OrderService {
         }
         
         if(period != null && !period.trim().isBlank()) {
-            LocalDateTime now = LocalDateTime.now();
-            
             switch (period.toUpperCase()) {
                 case "TODAY" -> {
                     LocalDate today = LocalDate.now();
@@ -120,7 +119,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         
-        return mapToOrderModDTO(stream.toList());
+        return mapToOrderModDTO(stream.sorted(Comparator.comparing(Order::getCreatedAt).reversed()).toList());
     }
 
     @Override
