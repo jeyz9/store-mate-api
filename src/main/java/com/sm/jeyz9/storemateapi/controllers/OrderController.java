@@ -84,7 +84,7 @@ public class OrderController {
     }
     
     @GetMapping("/moderator/orders/shipping-label")
-    public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestBody ShippingRequestDTO request) {
+    public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestPart ShippingRequestDTO request) {
         return new ResponseEntity<>(orderService.printShippingLabel(request.getIds()), HttpStatus.OK);
     }
 
