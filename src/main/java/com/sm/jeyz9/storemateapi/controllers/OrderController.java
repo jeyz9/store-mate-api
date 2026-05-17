@@ -5,6 +5,7 @@ import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.OrderService;
@@ -79,6 +80,11 @@ public class OrderController {
     @GetMapping("/moderator/orders/{orderNo}")
     public ResponseEntity<OrderModDetailsDTO> getOrderDetailsByModerator(@PathVariable("orderNo") String orderNo) {
         return new ResponseEntity<>(orderService.getOrderDetailsByModerator(orderNo), HttpStatus.OK);
+    }
+    
+    @GetMapping("/moderator/orders/shipping-label")
+    public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestBody List<Long> ids) {
+        return new ResponseEntity<>(orderService.printShippingLabel(ids), HttpStatus.OK);
     }
 
     @GetMapping("/orders/test-ws")
