@@ -38,11 +38,6 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    @PostMapping("/orders/test/payments")
-    public ResponseEntity<String> checkout() throws StripeException {
-        return new ResponseEntity<>(paymentService.checkout(), HttpStatus.OK);
-    }
-    
     @PostMapping("/orders/payments/intent")
     public ResponseEntity<Map<String, String>> checkoutIntent(@RequestBody CheckoutRequestDTO request, Principal principal) {
         return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request), HttpStatus.OK);
