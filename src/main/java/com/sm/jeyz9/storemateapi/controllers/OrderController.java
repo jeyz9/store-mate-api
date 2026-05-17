@@ -2,6 +2,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusRequestDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -58,8 +60,19 @@ public class OrderController {
         RECEIVE: ที่ต้องได้รับ
         COMPLETED: คำสั่งซื้อสำเร็จ
     """)
-    public ResponseEntity<String> changeOrderStatus(@PathVariable("orderNo") String orderNo, @Valid @RequestBody OrderStatusRequestDTO request, Principal principal){
+    public ResponseEntity<String> changeOrderStatus(@PathVariable(name = "orderNo") String orderNo, @Valid @RequestBody OrderStatusRequestDTO request, Principal principal){
         return new ResponseEntity<> (orderService.changeOrderStatus(orderNo, request.getStatus(), principal.getName()), HttpStatus.OK);
+    }
+    
+    @GetMapping("/moderator/orders")
+    @Operation(description = """
+        keyword: ค้นหาตาม ชื่อ, เบอร์โทร
+        startDate: ค้นหาวันที่เริ่มต้น เช่น 2026-04-25 YYYY-MM-DD
+        endDate: ค้นหาถึงวันที่ เช่น 2026-04-25 YYYY-MM-DD
+        period: TODAY, WEEK, MONTH
+    """)
+    public ResponseEntity<List<OrderModDTO>> getAllOrders(@RequestParam(name = "keyword", required = false) String keyword, @RequestParam(name = "startDate", required = false) LocalDate startDate, @RequestParam(name = "endDate", required = false) LocalDate endDate, @RequestParam(name = "period", required = false) String period) {
+        return new ResponseEntity<>(orderService.getAllOrders(keyword, startDate, endDate, period), HttpStatus.OK);
     }
 
     @GetMapping("/orders/test-ws")

@@ -64,6 +64,8 @@ public class Order {
     @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<OrderAddress> orderAddresses;
     
+    private boolean printed;
+    
     @PrePersist
     public void perPersist() {
         this.orderNo = UUID.randomUUID().toString();
