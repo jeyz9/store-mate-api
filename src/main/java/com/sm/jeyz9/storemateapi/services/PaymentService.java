@@ -82,35 +82,6 @@ public class PaymentService {
         this.refundRequestRepository = refundRequestRepository;
     }
 
-    public String checkout() throws StripeException {
-        Stripe.apiKey = secretKey;
-        SessionCreateParams params = SessionCreateParams.builder()
-                .setMode(SessionCreateParams.Mode.PAYMENT)
-                .setSuccessUrl(successUrl)
-                .setCancelUrl(cancelUrl)
-                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
-                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.PROMPTPAY)
-                .addLineItem(
-                        SessionCreateParams.LineItem.builder()
-                                .setQuantity(1L)
-                                .setPriceData(
-                                        SessionCreateParams.LineItem.PriceData.builder()
-                                                .setCurrency("thb")
-                                                .setUnitAmount(10000L)
-                                                .setProductData(
-                                                        SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                                .setName("Test Product")
-                                                                .build()
-                                                )
-                                                .build()
-                                )
-                                .build()
-                )
-                .build();
-        
-        return Session.create(params).getUrl();   
-    }
-    
     @Transactional
     public Map<String, String> checkoutIntent(String email, CheckoutRequestDTO request) {
         try {
@@ -401,6 +372,8 @@ public class PaymentService {
                 .order(order)
                 .zipcode(userAddress.getZipcode())
                 .createdAt(LocalDateTime.now())
+                .recipientName(user.getName())
+                .phone(user.getPhone())
                 .build();
         
         orderAddressRepository.save(orderAddress);
