@@ -8,14 +8,20 @@ import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusHistoryDTO;
+import com.sm.jeyz9.storemateapi.dto.PersonInfoDTO;
+import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
+import com.sm.jeyz9.storemateapi.models.ShippingItemsDTO;
+import com.sm.jeyz9.storemateapi.models.StoreInfo;
 import com.sm.jeyz9.storemateapi.models.User;
+import com.sm.jeyz9.storemateapi.models.Zipcode;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
+import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.modelmapper.ModelMapper;
@@ -38,13 +44,15 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final ModelMapper modelMapper;
+    private final StoreInfoRepository storeInfoRepository;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.modelMapper = modelMapper;
+        this.storeInfoRepository = storeInfoRepository;
     }
 
     @Override
@@ -160,8 +168,37 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void printShippingLabel() {
-
+    public List<ShippingDTO> printShippingLabel(List<Long> ids) {
+        return ids.stream().map(id -> {
+            Order order = orderRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+            if(order.getStatus().equals(OrderStatusName.PROCESSING)) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "The order status must be processing");
+            }
+            StoreInfo storeInfo = storeInfoRepository.findAll().getFirst();
+            return ShippingDTO.builder()
+                    .orderNo(order.getOrderNo())
+                    .shippingItems(order.getOrderItems().stream().map(oi -> ShippingItemsDTO.builder()
+                            .productName(oi.getProduct().getName())
+                            .quantity(oi.getQuantity())
+                            .price(oi.getProduct().getPrice())
+                            .build()).toList()
+                    )
+                    .total(order.getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
+                    .checkoutType(order.getCheckoutType().name())
+                    .senderInfo(PersonInfoDTO.builder()
+                            .senderName(storeInfo.getStoreName())
+                            .phone(storeInfo.getPhone())
+                            .address(storeInfo.getStreetAddress())
+                            .build()
+                    )
+                    .receiverInfo(PersonInfoDTO.builder()
+                            .senderName(order.getOrderAddresses().getFirst().getRecipientName())
+                            .phone(order.getOrderAddresses().getFirst().getPhone())
+                            .address(formatAddress(order.getOrderAddresses().getFirst().getStreetAddress(), order.getOrderAddresses().getFirst().getZipcode()))
+                            .build()
+                    )
+                    .build();
+        }).toList();
     }
     
     private OrderDetailsDTO mapToOrderDetailsDTO(Order order) {
@@ -232,6 +269,7 @@ public class OrderServiceImpl implements OrderService {
         return orders.stream().map(o -> {
             Double total = o.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum();
             return OrderModDTO.builder()
+                    .id(o.getId())
                     .orderNo(o.getOrderNo())
                     .recipientName(o.getUser().getName())
                     .phone(o.getUser().getPhone())
@@ -241,5 +279,16 @@ public class OrderServiceImpl implements OrderService {
                     .status(o.getStatus() != null ? o.getStatus().name() : null)
                     .build();
         }).toList();
+    }
+    
+    private String formatAddress(String address, Zipcode zipcode) {
+        return String.format(
+                "%s %s %s %s %s",
+                address,
+                zipcode.getSubdistrict().getName(),
+                zipcode.getDistrict().getName(),
+                zipcode.getProvince().getName(),
+                zipcode.getZipcode()
+        );
     }
 }
