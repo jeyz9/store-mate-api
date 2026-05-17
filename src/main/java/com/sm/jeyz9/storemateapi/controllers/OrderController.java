@@ -17,11 +17,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
@@ -83,13 +83,8 @@ public class OrderController {
         return new ResponseEntity<>(orderService.getOrderDetailsByModerator(orderNo), HttpStatus.OK);
     }
     
-    @GetMapping("/moderator/orders/shipping-label")
-    public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestPart ShippingRequestDTO request) {
+    @PostMapping("/moderator/orders/shipping-label")
+    public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestBody ShippingRequestDTO request) {
         return new ResponseEntity<>(orderService.printShippingLabel(request.getIds()), HttpStatus.OK);
-    }
-
-    @GetMapping("/orders/test-ws")
-    public void testWs(@RequestPart("email") String email) {
-        messagingService.sendToUser(email, "TEST_MESSAGE");
     }
 }
