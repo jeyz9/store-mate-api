@@ -3,6 +3,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusRequestDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
@@ -73,6 +74,11 @@ public class OrderController {
     """)
     public ResponseEntity<List<OrderModDTO>> getAllOrders(@RequestParam(name = "keyword", required = false) String keyword, @RequestParam(name = "startDate", required = false) LocalDate startDate, @RequestParam(name = "endDate", required = false) LocalDate endDate, @RequestParam(name = "period", required = false) String period) {
         return new ResponseEntity<>(orderService.getAllOrders(keyword, startDate, endDate, period), HttpStatus.OK);
+    }
+    
+    @GetMapping("/moderator/orders/{orderNo}")
+    public ResponseEntity<OrderModDetailsDTO> getOrderDetailsByModerator(@PathVariable("orderNo") String orderNo) {
+        return new ResponseEntity<>(orderService.getOrderDetailsByModerator(orderNo), HttpStatus.OK);
     }
 
     @GetMapping("/orders/test-ws")

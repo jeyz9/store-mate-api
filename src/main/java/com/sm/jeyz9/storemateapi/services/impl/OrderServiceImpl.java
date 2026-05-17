@@ -5,8 +5,9 @@ import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderItemDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
-import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
+import com.sm.jeyz9.storemateapi.dto.OrderStatusHistoryDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
@@ -17,13 +18,12 @@ import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.awt.print.Pageable;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,12 +37,14 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+        this.modelMapper = modelMapper;
     }
 
     @Override
@@ -123,8 +125,17 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void getOrderDetailsByModerator() {
-
+    public OrderModDetailsDTO getOrderDetailsByModerator(String orderNo) {
+        Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        List<OrderStatusHistory> orderHistory = orderStatusHistoryRepository.findByOrderId(order.getId());
+        OrderModDetailsDTO orderModDetails = modelMapper.map(mapToOrderDetailsDTO(order), OrderModDetailsDTO.class);
+        orderModDetails.setOrderStatusHistory(orderHistory.stream().map(oh -> OrderStatusHistoryDTO.builder()
+                .updatedBy(oh.getUser().getName())
+                .status(oh.getStatus().name())
+                .updatedAt(oh.getCreatedAt())
+                .build()).toList());
+        
+        return orderModDetails;
     }
 
     @Override
