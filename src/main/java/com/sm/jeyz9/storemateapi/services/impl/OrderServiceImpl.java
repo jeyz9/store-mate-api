@@ -171,7 +171,7 @@ public class OrderServiceImpl implements OrderService {
     public List<ShippingDTO> printShippingLabel(List<Long> ids) {
         return ids.stream().map(id -> {
             Order order = orderRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-            if(order.getStatus().equals(OrderStatusName.PROCESSING)) {
+            if(!order.getStatus().equals(OrderStatusName.PROCESSING)) {
                 throw new WebException(HttpStatus.BAD_REQUEST, "The order status must be processing");
             }
             StoreInfo storeInfo = storeInfoRepository.findAll().getFirst();
