@@ -177,8 +177,8 @@ public class OrderServiceImpl implements OrderService {
         ).toList();
         OrderRecipientDTO orderRecipientDTO = order.getOrderAddresses().stream().findFirst().map(oa ->
                 OrderRecipientDTO.builder()
-                        .recipientName(order.getUser().getName())
-                        .phone(order.getUser().getPhone())
+                        .recipientName(oa.getRecipientName())
+                        .phone(oa.getPhone())
                         .streetAddress(oa.getStreetAddress())
                         .subdistrict(oa.getZipcode().getSubdistrict().getName())
                         .district(oa.getZipcode().getDistrict().getName())
