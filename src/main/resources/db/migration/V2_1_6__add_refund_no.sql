@@ -1,0 +1,1 @@
+ALTER TABLE refund_requests ADD COLUMN IF NOT EXISTS refund_no VARCHAR(20);

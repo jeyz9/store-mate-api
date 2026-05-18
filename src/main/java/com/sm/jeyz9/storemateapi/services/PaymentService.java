@@ -24,6 +24,7 @@ import com.sm.jeyz9.storemateapi.repository.ProductRepository;
 import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
+import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
 import com.stripe.Stripe;
 import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.StripeException;
@@ -31,10 +32,8 @@ import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
-import com.stripe.model.checkout.Session;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.RefundCreateParams;
-import com.stripe.param.checkout.SessionCreateParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -62,12 +61,6 @@ public class PaymentService {
 
     @Value("${stripe.secret-key}")
     private String secretKey;
-    
-    @Value("${stripe.success-url}")
-    private String successUrl;
-    
-    @Value("${stripe.cancel-url}")
-    private String cancelUrl;
 
     @Autowired
     public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository) {
@@ -248,6 +241,7 @@ public class PaymentService {
                 .reason(request.getReason())
                 .description(request.getDescription())
                 .requestedAt(LocalDateTime.now())
+                .refundNo(RunningNumberUtil.generate("REF", order.getId()))
                 .build();
         refundRequestRepository.save(refund);
         return "Send refund successfully";
@@ -264,6 +258,10 @@ public class PaymentService {
         refundRequest.setStatus(RefundStatusName.APPROVED);
         refundRequestRepository.save(refundRequest);
 
+        if(refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+            return "Approve refund request success";
+        }
+        
         long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
         
         try {
