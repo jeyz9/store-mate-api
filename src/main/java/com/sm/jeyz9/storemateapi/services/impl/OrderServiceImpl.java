@@ -9,23 +9,34 @@ import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderRecipientDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusHistoryDTO;
 import com.sm.jeyz9.storemateapi.dto.PersonInfoDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundDetailsDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundPaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
+import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
+import com.sm.jeyz9.storemateapi.models.RefundRequest;
+import com.sm.jeyz9.storemateapi.models.RefundStatusName;
 import com.sm.jeyz9.storemateapi.models.ShippingItemsDTO;
 import com.sm.jeyz9.storemateapi.models.StoreInfo;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.models.Zipcode;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
+import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
 import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,14 +56,16 @@ public class OrderServiceImpl implements OrderService {
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final ModelMapper modelMapper;
     private final StoreInfoRepository storeInfoRepository;
+    private final RefundRequestRepository refundRequestRepository;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.modelMapper = modelMapper;
         this.storeInfoRepository = storeInfoRepository;
+        this.refundRequestRepository = refundRequestRepository;
     }
 
     @Override
@@ -61,13 +74,14 @@ public class OrderServiceImpl implements OrderService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            List<Order> orders = orderRepository.findAllByUser(user);
-            Stream<Order> filtered = orders.stream();
-            if(!status.equals(OrderStatusName.ALL)){
-                filtered = filtered.filter(o -> o.getStatus().equals(status));
+            List<Order> orders;
+            if(status.equals(OrderStatusName.ALL)) {
+                orders = orderRepository.findAllByUser(user);
+            }else {
+                orders = orderRepository.findAllByUserAndStatus(user, status);
             }
 
-            return mapToDTO(filtered.toList());
+            return mapToDTO(orders);
 
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
@@ -201,6 +215,50 @@ public class OrderServiceImpl implements OrderService {
         }).toList();
     }
     
+    @Override
+    public RefundPaginationDTO getAllOrdersRefund(int page, int size) {
+        List<RefundRequest> refundRequests = refundRequestRepository.findAll();
+        List<RefundDTO> refunds = refundRequests.stream().map(r -> RefundDTO.builder()
+                .refundNo(r.getRefundNo())
+                .receiverName(r.getUser().getName())
+                .orderNo(r.getOrder().getOrderNo())
+                .total(r.getOrder().getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
+                .reason(r.getReason())
+                .requestedAt(r.getRequestedAt())
+                .status(r.getStatus().name())
+                .build()).toList();
+
+        Pageable pageable = PageRequest.of(page, size);
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), refunds.size());
+        int total = refunds.size();
+        
+        List<RefundDTO> refundList = refunds.subList(start, end);
+        Page<RefundDTO> refundPage = new PageImpl<>(refundList, pageable, refunds.size());
+        
+        return RefundPaginationDTO.builder()
+                .refunds(refundPage.getContent())
+                .page(page)
+                .size(size)
+                .pendingCount((int) refundRequests.stream().filter(r -> r.getStatus().equals(RefundStatusName.PENDING)).count())
+                .total(total)
+                .build();
+    }
+    
+    @Override
+    public RefundDetailsDTO getOrderRefundDetails(String refundNo) {
+        RefundRequest refund = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund not found"));
+        return RefundDetailsDTO.builder()
+                .refundNo(refund.getRefundNo())
+                .orderNo(refund.getOrder().getOrderNo())
+                .receiverName(refund.getUser().getName())
+                .total(refund.getOrder().getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
+                .reason(refund.getReason())
+                .requestedAt(refund.getRequestedAt())
+                .status(refund.getStatus().name())
+                .build();
+    }
+    
     private OrderDetailsDTO mapToOrderDetailsDTO(Order order) {
         List<OrderItemDTO> orderItemDTO = order.getOrderItems().stream().map(
                 oi -> OrderItemDTO.builder()
@@ -234,34 +292,50 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
     
-    private List<OrderDTO> mapToDTO(List<Order> order) {
-        return order.stream().map(
-                o -> OrderDTO.builder()
-                        .id(o.getId())
-                        .orderNo(o.getOrderNo())
-                        .orderItems(o.getOrderItems().stream().map(oi -> OrderItemDTO.builder()
-                                        .id(oi.getId())
-                                        .imageUrl(oi.getProduct().getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null))
-                                        .productName(oi.getProduct().getName())
-                                        .price(oi.getProduct().getPrice())
-                                        .quantity(oi.getQuantity())
-                                        .subTotal(oi.getProduct().getPrice() * oi.getQuantity())
-                                        .build()
-                                ).toList()
-                        )
-                        .orderAddress(o.getOrderAddresses().stream().map(oa -> OrderAddressDTO.builder()
-                                .id(oa.getId())
-                                .streetAddress(oa.getStreetAddress())
-                                .subdistrict(oa.getZipcode().getSubdistrict().getName())
-                                .district(oa.getZipcode().getDistrict().getName())
-                                .province(oa.getZipcode().getProvince().getName())
-                                .zipcode(oa.getZipcode().getZipcode())
-                                .build()).toList())
-                        .status(o.getStatus().toString())
-                        .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
-                        .total(o.getOrderItems().stream().mapToDouble(oi -> oi.getQuantity() * oi.getProduct().getPrice()).sum())
-                        .createdAt(o.getCreatedAt())
-                        .build()
+    private List<OrderDTO> mapToDTO(List<Order> orders) {
+        return orders.stream().map(
+                o -> {
+                    List<OrderItemDTO> orderItems = o.getOrderItems().stream().map(item -> {
+                        Product product = item.getProduct();
+                        
+                        String imageUrl = product.getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null);
+                        
+                        return OrderItemDTO.builder()
+                                .id(item.getId())
+                                .imageUrl(imageUrl)
+                                .productName(product.getName())
+                                .price(product.getPrice())
+                                .quantity(item.getQuantity())
+                                .subTotal(product.getPrice() * item.getQuantity())
+                                .build();
+                    }).toList();
+                    
+                    List<OrderAddressDTO> orderAddress = o.getOrderAddresses().stream().map(
+                            a -> OrderAddressDTO.builder()
+                                    .id(a.getId())
+                                    .streetAddress(a.getStreetAddress())
+                                    .subdistrict(a.getZipcode().getSubdistrict().getName())
+                                    .district(a.getZipcode().getDistrict().getName())
+                                    .province(a.getZipcode().getProvince().getName())
+                                    .zipcode(a.getZipcode().getZipcode())
+                                    .build()
+                    ).toList();
+                    
+                    double total = o.getOrderItems().stream().mapToDouble(
+                            i -> i.getProduct().getPrice() * i.getQuantity()
+                    ).sum();
+                    
+                    return OrderDTO.builder()
+                            .id(o.getId())
+                            .orderNo(o.getOrderNo())
+                            .orderItems(orderItems)
+                            .orderAddress(orderAddress)
+                            .status(o.getStatus().toString())
+                            .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
+                            .total(total)
+                            .createdAt(o.getCreatedAt())
+                            .build();
+                }
         ).toList();
     }
     

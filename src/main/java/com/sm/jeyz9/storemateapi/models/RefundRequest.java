@@ -48,4 +48,5 @@ public class RefundRequest {
     private String description;
     private LocalDateTime approvedAt;
     private LocalDateTime requestedAt;
+    private String refundNo;
 }

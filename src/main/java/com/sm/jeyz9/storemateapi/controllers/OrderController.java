@@ -5,10 +5,11 @@ import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderModDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderStatusRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundDetailsDTO;
+import com.sm.jeyz9.storemateapi.dto.RefundPaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingRequestDTO;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
-import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -33,12 +34,10 @@ import java.util.Map;
 @RequestMapping(value = "/api/v1")
 public class OrderController {
     private final OrderService orderService;
-    private final MessagingService messagingService;
 
     @Autowired
-    public OrderController(OrderService orderService, MessagingService messagingService) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
-        this.messagingService = messagingService;
     }
     
     @GetMapping("/orders")
@@ -86,5 +85,15 @@ public class OrderController {
     @PostMapping("/moderator/orders/shipping-label")
     public ResponseEntity<List<ShippingDTO>> printShippingLabel(@RequestBody ShippingRequestDTO request) {
         return new ResponseEntity<>(orderService.printShippingLabel(request.getIds()), HttpStatus.OK);
+    }
+    
+    @GetMapping("/moderator/orders/refund")
+    public ResponseEntity<RefundPaginationDTO> getAllOrdersRefund(@RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "6") Integer size) {
+        return new ResponseEntity<>(orderService.getAllOrdersRefund(page, size), HttpStatus.OK);
+    }
+    
+    @GetMapping("/moderator/orders/refund/{refundNo}")
+    public ResponseEntity<RefundDetailsDTO> getOrderRefundDetails(@PathVariable("refundNo") String refundNo) {
+        return new ResponseEntity<>(orderService.getOrderRefundDetails(refundNo), HttpStatus.OK);
     }
 }
