@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.repository;
 
+import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
@@ -15,7 +16,33 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByStripePaymentIntent(String stripePaymentIntent);
 
-    List<Order> findAllByUser(User user);
+    @Query(value = """
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.orderItems oi
+        LEFT JOIN FETCH oi.product p
+        LEFT JOIN FETCH p.productImage
+        LEFT JOIN FETCH o.orderAddresses oa
+        LEFT JOIN FETCH oa.zipcode z
+        LEFT JOIN FETCH z.subdistrict
+        LEFT JOIN FETCH z.district
+        LEFT JOIN FETCH z.province
+        WHERE o.user = :user AND o.status = :status
+    """)
+    List<Order> findAllByUserAndStatus(@Param("user") User user, @Param("status") OrderStatusName status);
+
+    @Query(value = """
+        SELECT DISTINCT o FROM Order o
+        LEFT JOIN FETCH o.orderItems oi
+        LEFT JOIN FETCH oi.product p
+        LEFT JOIN FETCH p.productImage
+        LEFT JOIN FETCH o.orderAddresses oa
+        LEFT JOIN FETCH oa.zipcode z
+        LEFT JOIN FETCH z.subdistrict
+        LEFT JOIN FETCH z.district
+        LEFT JOIN FETCH z.province
+        WHERE o.user = :user
+    """)
+    List<Order> findAllByUser(@Param("user") User user);
     
     @Query(value = """
         SELECT o.status FROM orders o WHERE o.order_no = :orderNo;
