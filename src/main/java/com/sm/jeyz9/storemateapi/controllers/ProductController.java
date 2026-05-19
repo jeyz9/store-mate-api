@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductDetailsDTO;
+import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductWithCategoryDTO;
 import com.sm.jeyz9.storemateapi.services.ProductService;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -100,5 +102,15 @@ public class ProductController {
     @GetMapping("/products/{id}")
     public ResponseEntity<ProductDetailsDTO> getProductDetails(@PathVariable Long id) {
         return ResponseEntity.ok(productService.getProductDetails(id));
+    }
+    
+    @DeleteMapping("/moderator/products/{productId}")
+    public ResponseEntity<String> removeProduct(@PathVariable("productId") Long productId) {
+        return new ResponseEntity<>(productService.removeProduct(productId), HttpStatus.OK);
+    } 
+    
+    @GetMapping("/moderator/products")
+    public ResponseEntity<PaginationDTO<ProductModDTO>> getAllProduct(@RequestParam(required = false, defaultValue = "") String keyword, @RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "10") Integer size) {
+        return new ResponseEntity<>(productService.getAllProduct(keyword, page, size), HttpStatus.OK);
     }
 }
