@@ -56,4 +56,6 @@ public class Product {
     
     private LocalDateTime updatedAt;
     private LocalDateTime createdAt;
+    
+    private String productNo;
 }
