@@ -96,6 +96,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public OrderDetailsDTO getOrderDetails(String email, String orderNo) {
         try {
             User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
@@ -109,6 +110,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public List<OrderModDTO> getAllOrders(String keyword, LocalDate startDate, LocalDate endDate, String period) {
         List<Order> orders = orderRepository.findAll();
         Stream<Order> stream = orders.stream();
@@ -149,6 +151,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public OrderModDetailsDTO getOrderDetailsByModerator(String orderNo) {
         Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
         List<OrderStatusHistory> orderHistory = orderStatusHistoryRepository.findByOrderId(order.getId());
