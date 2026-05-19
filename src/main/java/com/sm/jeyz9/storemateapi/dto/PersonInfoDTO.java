@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @Builder
 public class PersonInfoDTO {
-    private String senderName;
+    private String name;
     private String phone;
     private String address;
 }
