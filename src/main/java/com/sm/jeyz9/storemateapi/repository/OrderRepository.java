@@ -56,14 +56,20 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT o.status FROM orders o WHERE o.order_no = :orderNo;
     """, nativeQuery = true)
     String findOrderStatusByOrderNo(String orderNo);
-    
-    @Query(value = """
-        SELECT * FROM orders o WHERE o.order_no = :orderNo AND o.user_id = :userId;
-    """, nativeQuery = true)
+
+    @EntityGraph(attributePaths = {
+            "orderItems",
+            "orderItems.product",
+            "orderAddresses",
+            "orderAddresses.zipcode"
+    })
     Optional<Order> findOrderByOrderNoAndUserId(String orderNo, Long userId);
 
-    @Query(value = """
-        SELECT * FROM orders o WHERE o.order_no = :orderNo;
-    """, nativeQuery = true)
+    @EntityGraph(attributePaths = {
+            "orderItems",
+            "orderItems.product",
+            "orderAddresses",
+            "orderAddresses.zipcode"
+    })
     Optional<Order> findOneByOrderNo(String orderNo);
 }
