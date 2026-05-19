@@ -86,7 +86,6 @@ public class OrderServiceImpl implements OrderService {
             
             return mapToDTO(orders);
         } catch (Exception e) {
-            e.printStackTrace();
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
     }
@@ -185,37 +184,45 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ShippingDTO> printShippingLabel(List<Long> ids) {
-        return ids.stream().map(id -> {
-            Order order = orderRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-            if(!order.getStatus().equals(OrderStatusName.PROCESSING)) {
-                throw new WebException(HttpStatus.BAD_REQUEST, "The order status must be processing");
-            }
+        try {
             StoreInfo storeInfo = storeInfoRepository.findAll().getFirst();
-            return ShippingDTO.builder()
-                    .orderNo(order.getOrderNo())
-                    .shippingItems(order.getOrderItems().stream().map(oi -> ShippingItemsDTO.builder()
-                            .productName(oi.getProduct().getName())
-                            .quantity(oi.getQuantity())
-                            .price(oi.getProduct().getPrice())
-                            .build()).toList()
-                    )
-                    .total(order.getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
-                    .checkoutType(order.getCheckoutType().name())
-                    .senderInfo(PersonInfoDTO.builder()
-                            .senderName(storeInfo.getStoreName())
-                            .phone(storeInfo.getPhone())
-                            .address(storeInfo.getStreetAddress())
-                            .build()
-                    )
-                    .receiverInfo(PersonInfoDTO.builder()
-                            .senderName(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getRecipientName).get())
-                            .phone(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getPhone).get())
-                            .address(formatAddress(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getStreetAddress).get(), order.getOrderAddresses().stream().findFirst().map(OrderAddress::getZipcode).get()))
-                            .build()
-                    )
-                    .build();
-        }).toList();
+            return ids.stream().map(id -> {
+                Order order = orderRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+                if (!order.getStatus().equals(OrderStatusName.PROCESSING)) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "The order status must be processing");
+                }
+                
+                OrderAddress address = order.getOrderAddresses().stream().findFirst().orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order address not found"));
+                
+                return ShippingDTO.builder()
+                        .orderNo(order.getOrderNo())
+                        .shippingItems(order.getOrderItems().stream().map(oi -> ShippingItemsDTO.builder()
+                                .productName(oi.getProduct().getName())
+                                .quantity(oi.getQuantity())
+                                .price(oi.getProduct().getPrice())
+                                .build()).toList()
+                        )
+                        .total(order.getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
+                        .checkoutType(order.getCheckoutType().name())
+                        .senderInfo(PersonInfoDTO.builder()
+                                .name(storeInfo.getStoreName())
+                                .phone(storeInfo.getPhone())
+                                .address(storeInfo.getStreetAddress())
+                                .build()
+                        )
+                        .receiverInfo(PersonInfoDTO.builder()
+                                .name(address.getRecipientName())
+                                .phone(address.getPhone())
+                                .address(formatAddress(address.getStreetAddress(), address.getZipcode()))
+                                .build()
+                        )
+                        .build();
+            }).toList();
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
     
     @Override

@@ -1,9 +1,9 @@
 package com.sm.jeyz9.storemateapi.repository;
 
-import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -43,6 +43,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.user = :user
     """)
     List<Order> findAllByUser(@Param("user") User user);
+
+    @EntityGraph(attributePaths = {
+            "orderItems",
+            "orderItems.product",
+            "orderAddresses",
+            "orderAddresses.zipcode"
+    })
+    Optional<Order> findById(Long id);
     
     @Query(value = """
         SELECT o.status FROM orders o WHERE o.order_no = :orderNo;
