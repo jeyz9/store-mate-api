@@ -15,6 +15,7 @@ import com.sm.jeyz9.storemateapi.dto.RefundPaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
+import com.sm.jeyz9.storemateapi.models.OrderAddress;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.Product;
@@ -47,6 +48,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -80,10 +83,10 @@ public class OrderServiceImpl implements OrderService {
             }else {
                 orders = orderRepository.findAllByUserAndStatus(user, status);
             }
-
+            
             return mapToDTO(orders);
-
         } catch (Exception e) {
+            e.printStackTrace();
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
     }
@@ -206,9 +209,9 @@ public class OrderServiceImpl implements OrderService {
                             .build()
                     )
                     .receiverInfo(PersonInfoDTO.builder()
-                            .senderName(order.getOrderAddresses().getFirst().getRecipientName())
-                            .phone(order.getOrderAddresses().getFirst().getPhone())
-                            .address(formatAddress(order.getOrderAddresses().getFirst().getStreetAddress(), order.getOrderAddresses().getFirst().getZipcode()))
+                            .senderName(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getRecipientName).get())
+                            .phone(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getPhone).get())
+                            .address(formatAddress(order.getOrderAddresses().stream().findFirst().map(OrderAddress::getStreetAddress).get(), order.getOrderAddresses().stream().findFirst().map(OrderAddress::getZipcode).get()))
                             .build()
                     )
                     .build();
@@ -295,7 +298,7 @@ public class OrderServiceImpl implements OrderService {
     private List<OrderDTO> mapToDTO(List<Order> orders) {
         return orders.stream().map(
                 o -> {
-                    List<OrderItemDTO> orderItems = o.getOrderItems().stream().map(item -> {
+                    Set<OrderItemDTO> orderItems = o.getOrderItems().stream().map(item -> {
                         Product product = item.getProduct();
                         
                         String imageUrl = product.getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null);
@@ -308,9 +311,9 @@ public class OrderServiceImpl implements OrderService {
                                 .quantity(item.getQuantity())
                                 .subTotal(product.getPrice() * item.getQuantity())
                                 .build();
-                    }).toList();
+                    }).collect(Collectors.toSet());
                     
-                    List<OrderAddressDTO> orderAddress = o.getOrderAddresses().stream().map(
+                    Set<OrderAddressDTO> orderAddress = o.getOrderAddresses().stream().map(
                             a -> OrderAddressDTO.builder()
                                     .id(a.getId())
                                     .streetAddress(a.getStreetAddress())
@@ -319,7 +322,7 @@ public class OrderServiceImpl implements OrderService {
                                     .province(a.getZipcode().getProvince().getName())
                                     .zipcode(a.getZipcode().getZipcode())
                                     .build()
-                    ).toList();
+                    ).collect(Collectors.toSet());
                     
                     double total = o.getOrderItems().stream().mapToDouble(
                             i -> i.getProduct().getPrice() * i.getQuantity()
