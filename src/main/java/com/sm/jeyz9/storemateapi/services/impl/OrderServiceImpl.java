@@ -170,19 +170,24 @@ public class OrderServiceImpl implements OrderService {
     public String changeOrderStatus(String orderNo, String status, String email) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
         Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-        OrderStatusName statusName = OrderStatusName.valueOf(status);
-        order.setStatus(statusName);
-        orderRepository.save(order);
-
-        OrderStatusHistory orderStatusHistory = OrderStatusHistory.builder()
-                .id(null)
-                .user(user)
-                .order(order)
-                .status(statusName)
-                .createdAt(LocalDateTime.now())
-                .build();
         
-        orderStatusHistoryRepository.save(orderStatusHistory);
+        try {
+            OrderStatusName statusName = OrderStatusName.valueOf(status);
+            order.setStatus(statusName);
+            orderRepository.save(order);
+
+            OrderStatusHistory orderStatusHistory = OrderStatusHistory.builder()
+                    .id(null)
+                    .user(user)
+                    .order(order)
+                    .status(statusName)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            orderStatusHistoryRepository.save(orderStatusHistory);
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
         return "Update status successfully";
     }
 
