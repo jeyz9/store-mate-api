@@ -4,6 +4,7 @@ import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductImageDTO;
+import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductWithCategoryDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewDTO;
@@ -22,6 +23,7 @@ import com.sm.jeyz9.storemateapi.repository.ProductStatusRepository;
 import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.services.ProductService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
+import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -82,6 +84,9 @@ public class ProductServiceImpl implements ProductService {
                     .updatedAt(LocalDateTime.now())
                     .createdAt(LocalDateTime.now())
                     .build();
+            
+            productRepository.saveAndFlush(product);
+            product.setProductNo(RunningNumberUtil.generate("PRD", product.getId()));
             productRepository.save(product);
             
             supabaseService.saveProductImages(product.getId(), files);
@@ -184,6 +189,50 @@ public class ProductServiceImpl implements ProductService {
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
+    }
+
+    @Override
+    public PaginationDTO<ProductModDTO> getAllProduct(String keyword, Integer page, Integer size) {
+        List<ProductModDTO> products = productRepository.findAllProductModerator();
+        Stream<ProductModDTO> stream = products.stream();
+        if(keyword != null && keyword.trim().isBlank()) {
+            stream = stream.filter(p -> p.getProductName().toLowerCase().contains(keyword.toLowerCase()) || p.getProductNo().toLowerCase().contains(keyword.toLowerCase()));
+        }
+        
+        List<ProductModDTO> filter = stream.toList();
+        
+        Pageable pageable = PageRequest.of(page, size);
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filter.size());
+        int total = filter.size();
+        
+        List<ProductModDTO> paginatedList = filter.subList(start, end);
+        Page<ProductModDTO> productPage = new PageImpl<>(paginatedList, pageable, filter.size());
+        PaginationDTO<ProductModDTO> response = new PaginationDTO<>();
+        response.setData(productPage.getContent());
+        response.setPage(page);
+        response.setSize(size);
+        response.setTotal(total);
+        
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public String removeProduct(Long id) {
+        Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
+        try {
+            product.getProductImage().stream().map(
+                    p -> {
+                        supabaseService.deleteProductImage(p.getImageUrl());
+                        return null;
+                    }
+            ).toList();
+            productRepository.delete(product);
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
+        return "Delete product success";
     }
 
     private List<ProductDTO> mapToProductDTO(List<Product> products) {
