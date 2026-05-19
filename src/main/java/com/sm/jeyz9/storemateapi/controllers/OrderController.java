@@ -59,7 +59,7 @@ public class OrderController {
     @Operation(description = """
         PENDING: รอดำเนินการ, รอชำระเงิน
         PROCESSING: ที่ต้องจัดส่ง
-        RECEIVE: ที่ต้องได้รับ
+        RECEIVED: ที่ต้องได้รับ
         COMPLETED: คำสั่งซื้อสำเร็จ
     """)
     public ResponseEntity<String> changeOrderStatus(@PathVariable(name = "orderNo") String orderNo, @Valid @RequestBody OrderStatusRequestDTO request, Principal principal){
