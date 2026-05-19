@@ -22,6 +22,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -59,10 +60,10 @@ public class Order {
     private LocalDateTime createdAt = LocalDateTime.now();
     
     @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<OrderItem> orderItems;
+    private Set<OrderItem> orderItems;
     
     @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<OrderAddress> orderAddresses;
+    private Set<OrderAddress> orderAddresses;
     
     private boolean printed;
     
