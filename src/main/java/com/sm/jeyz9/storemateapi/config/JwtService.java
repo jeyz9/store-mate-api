@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,8 @@ public class JwtService {
     
     public String generateToken(UserDetails userDetails) {
         User user = userRepository.findUserByEmail(userDetails.getUsername()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setLastSeenAt(LocalDateTime.now());
+        userRepository.save(user);
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .claim("userId", user.getId())
