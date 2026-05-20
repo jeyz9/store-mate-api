@@ -2,7 +2,6 @@ package com.sm.jeyz9.storemateapi.repository;
 
 import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.models.Product;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

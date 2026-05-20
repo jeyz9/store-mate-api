@@ -7,6 +7,7 @@ import com.sm.jeyz9.storemateapi.dto.ProductDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.ProductUpdateRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductWithCategoryDTO;
 import com.sm.jeyz9.storemateapi.services.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -112,5 +114,47 @@ public class ProductController {
     @GetMapping("/moderator/products")
     public ResponseEntity<PaginationDTO<ProductModDTO>> getAllProduct(@RequestParam(required = false, defaultValue = "") String keyword, @RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "10") Integer size) {
         return new ResponseEntity<>(productService.getAllProduct(keyword, page, size), HttpStatus.OK);
+    }
+
+    @Operation(
+            summary = "อัพเดทสินค้าใหม่",
+            description = """
+                    ใช้สำหรับเพิ่มข้อมูลสินค้าใหม่เข้าสู่ระบบ พร้อมรองรับการอัปโหลดรูปภาพสูงสุด 5 ภาพ
+                    ตัวอย่าง Request:
+                    {
+                      "productName": "string",
+                      "categoryId": 0,
+                      "price": 0.1,
+                      "statusId": 0,
+                      "description": "string",
+                      "stockQuantity": 0,
+                      "removeImages": [0] // เอาไว้ใส่ไอดีรูปที่จะลบ ใส่หลายไอดีได้
+                    }
+                    
+                    ตัวอย่าง category :
+                    id   |  categoryName
+                    1    |  Promotion
+                    2    |  Soap
+                    3    |  Drinks
+                    4    |  Shampoo
+                    
+                    ตัวอย่าง status :
+                    id   |  statusName
+                    1    |  active   => พร้อมจำหน่าย
+                    2    |  inactive => ไม่พร้อมจำหน่าย
+            """
+    )
+    @PutMapping(value = "/moderator/products/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> updateProduct(
+            @PathVariable("productId") Long productId,
+            @RequestPart(value = "request", required = false) String requestJson,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
+    ) throws JsonProcessingException {
+
+        ObjectMapper mapper = new ObjectMapper();
+        ProductUpdateRequestDTO request = mapper.readValue(requestJson, ProductUpdateRequestDTO.class);
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(productService.updateProduct(productId, request, files));
     }
 }
