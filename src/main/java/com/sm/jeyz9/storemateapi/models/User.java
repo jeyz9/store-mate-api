@@ -58,4 +58,5 @@ public class User {
     
     private boolean isSuspended;
     private LocalDateTime suspendAt;
+    private LocalDateTime lastSeenAt;
 }
