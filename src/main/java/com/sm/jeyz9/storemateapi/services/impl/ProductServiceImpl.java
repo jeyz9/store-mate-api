@@ -6,6 +6,7 @@ import com.sm.jeyz9.storemateapi.dto.ProductDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductImageDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.ProductUpdateRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductWithCategoryDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewerDTO;
@@ -38,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -89,7 +91,9 @@ public class ProductServiceImpl implements ProductService {
             product.setProductNo(RunningNumberUtil.generate("PRD", product.getId()));
             productRepository.save(product);
             
-            supabaseService.saveProductImages(product.getId(), files);
+            if(files != null && !files.isEmpty()){
+                supabaseService.saveProductImages(product.getId(), files);
+            }
             
             return "Add product success.";
         }catch(WebException e) {
@@ -233,6 +237,43 @@ public class ProductServiceImpl implements ProductService {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
         return "Delete product success";
+    }
+
+    @Override
+    @Transactional
+    public String updateProduct(Long id, ProductUpdateRequestDTO request, List<MultipartFile> files) {
+        try{
+            ProductStatus status = productStatusRepository.findById(request.getStatusId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product Status not found."));
+            Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Category not found."));
+            Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
+            product.setName(request.getProductName());
+            product.setDescription(request.getDescription());
+            product.setProductStatus(status);
+            product.setCategory(category);
+            product.setPrice(request.getPrice());
+            product.setStock_quantity(request.getStockQuantity());
+            product.setUpdatedAt(LocalDateTime.now());
+            productRepository.save(product);
+            
+            if(request.getRemoveImages() != null && !request.getRemoveImages().isEmpty()) {
+                for (Long imageId : request.getRemoveImages()) {
+                    ProductImage img = productImageRepository.findById(imageId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Image not found"));
+                    productImageRepository.delete(img);
+                    supabaseService.deleteProductImage(img.getImageUrl());
+                }
+            }
+
+            if(files != null && !files.isEmpty()) {
+                supabaseService.saveProductImages(product.getId(), files);
+            }
+
+            return "Update product success.";
+        }catch(WebException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error " + e.getMessage());
+        }
     }
 
     private List<ProductDTO> mapToProductDTO(List<Product> products) {
