@@ -85,7 +85,7 @@ public class PaymentService {
                     .status(OrderStatusName.PENDING)
                     .user(user)
                     .createdAt(LocalDateTime.now())
-                    .orderChannel(OrderChannelName.ONLINE)
+                    .orderChannel(OrderChannelName.WEBSITE)
                     .checkoutType(request.getCheckoutType())
                     .build();
 
@@ -154,7 +154,7 @@ public class PaymentService {
                     .status(OrderStatusName.PENDING)
                     .user(user)
                     .createdAt(LocalDateTime.now())
-                    .orderChannel(OrderChannelName.ONLINE)
+                    .orderChannel(OrderChannelName.WEBSITE)
                     .checkoutType(request.getCheckoutType())
                     .build();
 
