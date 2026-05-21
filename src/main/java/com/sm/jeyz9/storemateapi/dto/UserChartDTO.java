@@ -5,13 +5,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
-
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ActiveUserChartDTO {
-    private List<UserChartDTO> thisWeek;
-    private List<UserChartDTO> lastWeek;
+public class UserChartDTO {
+    private Integer dayOfWeek;
+    private String activityDate;
+    private Integer totalUsers;
 }

@@ -16,7 +16,7 @@ import java.util.List;
 public class AdminDashboardDTO {
     private Integer activeUsers;
     private Integer newUsers;
-    private List<ActiveUserChartDTO> weeklyActiveUsersChart;
+    private ActiveUserChartDTO weeklyActiveUsersChart;
     private List<LatestOrderDTO> latestOrder;
     private List<OrderChannelRateDTO> orderChannelRate;
     private List<RegionalRevenueDTO> regionalRevenue;

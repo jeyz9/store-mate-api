@@ -34,110 +34,137 @@ public class AdminDashboardRepository {
                 COUNT(
                         CASE
                             WHEN last_seen_at >= NOW() - INTERVAL '5 minutes'
-                            THEN 1
+                                THEN 1
                             END
                 ) AS "activeUsers",
                 COUNT(
                         CASE
                             WHEN DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
-                            THEN 1
+                                THEN 1
                             END
                 ) AS "newUsers",
+                    (
+                          SELECT json_build_object(
+                                         'thisWeek',
+                                         (SELECT COALESCE(json_agg(t), '[]')
+                                          FROM (SELECT EXTRACT(ISODOW FROM ual.activity_date) AS "dayOfWeek",
+                                                       CASE EXTRACT(ISODOW FROM ual.activity_date)
+                                                           WHEN 1 THEN 'วันจันทร์'
+                                                           WHEN 2 THEN 'วันอังคาร'
+                                                           WHEN 3 THEN 'วันพุธ'
+                                                           WHEN 4 THEN 'วันพฤหัสบดี'
+                                                           WHEN 5 THEN 'วันศุกร์'
+                                                           WHEN 6 THEN 'วันเสาร์'
+                                                           WHEN 7 THEN 'วันอาทิตย์'
+                                                           END                                AS "activityDate",
+                                                       COUNT(DISTINCT ual.user_id)            AS "totalUsers"
+                                                FROM user_activity_logs ual
+                                                WHERE ual.activity_date >= DATE_TRUNC('week', CURRENT_DATE)
+                                                GROUP BY ual.activity_date
+                                                ORDER BY "dayOfWeek") t),
+                                         'lastWeek',
+                                         (SELECT COALESCE(json_agg(t), '[]')
+                                          FROM (SELECT EXTRACT(ISODOW FROM ual.activity_date) AS "dayOfWeek",
+                                                       CASE EXTRACT(ISODOW FROM ual.activity_date)
+                                                           WHEN 1 THEN 'วันจันทร์'
+                                                           WHEN 2 THEN 'วันอังคาร'
+                                                           WHEN 3 THEN 'วันพุธ'
+                                                           WHEN 4 THEN 'วันพฤหัสบดี'
+                                                           WHEN 5 THEN 'วันศุกร์'
+                                                           WHEN 6 THEN 'วันเสาร์'
+                                                           WHEN 7 THEN 'วันอาทิตย์'
+                                                           END                                AS "activityDate",
+                                                       COUNT(DISTINCT ual.user_id)            AS "totalUsers"
+                                                FROM user_activity_logs ual
+                                                WHERE ual.activity_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days'
+                                                  AND ual.activity_date < DATE_TRUNC('week', CURRENT_DATE)
+                                                GROUP BY ual.activity_date
+                                                ORDER BY "dayOfWeek") t)
+                          )
+                      ) AS "weeklyActiveUsersChart",
                 (
                     SELECT COALESCE(json_agg(t), '[]')
                     FROM (
-                        SELECT
-                            activity_date AS "activityDate",
-                            COUNT(DISTINCT  user_id) AS "totalUsers"
-                        FROM user_activity_logs
-                        WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-                        GROUP BY activity_date
-                        ORDER BY activity_date
-                    ) t
-                ) AS "weeklyActiveUsersChart",
-                (
-                    SELECT COALESCE(json_agg(t), '[]')
-                    FROM (
-                        SELECT
-                           o.order_no AS "orderNo",
-                           u.name,
-                           o.status
-                        FROM orders o
-                        LEFT JOIN users u ON o.user_id = u.id
-                        ORDER BY o.created_at DESC
-                        LIMIT 6
-                    ) t
+                             SELECT
+                                 o.order_no AS "orderNo",
+                                 u.name,
+                                 o.status
+                             FROM orders o
+                                      LEFT JOIN users u ON o.user_id = u.id
+                             ORDER BY o.created_at DESC
+                             LIMIT 6
+                         ) t
                 ) AS "latestOrder",
                 (
                     SELECT COALESCE(json_agg(t), '[]')
                     FROM (
-                     SELECT
-                         t.order_channel AS "orderChannel",
-                         AVG(order_score)
-                     FROM (
-                              SELECT
-                                  o.order_channel,
-                                  ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS order_score
-                              FROM orders o
-                              GROUP BY o.order_channel
-                          ) t
-                     GROUP BY t.order_channel
-                    ) t
+                             SELECT
+                                 t.order_channel AS "orderChannel",
+                                 t.order_score AS "avg"
+                             FROM (
+                                      SELECT
+                                          o.order_channel,
+                                          ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 2) AS order_score
+                                      FROM orders o
+                                      GROUP BY o.order_channel
+                                  ) t
+                             GROUP BY t.order_channel, t.order_score
+                         ) t
                 ) AS "orderChannelRate",
                 (
                     SELECT COALESCE(json_agg(t), '[]')
                     FROM (
-                         SELECT
-                             CASE WHEN p.name IN (
-                                  'กรุงเทพมหานคร',
-                                  'นนทบุรี',
-                                  'ปทุมธานี',
-                                  'สมุทรปราการ',
-                                  'นครปฐม',
-                                  'สมุทรสาคร'
-                             )
-                             THEN 'กรุงเทพและปริมณฑล'
-                             ELSE g.name
-                             END AS geography,
-                             COUNT(o) AS "totalOrders"
-                         FROM orders o
-                                  LEFT JOIN order_address oa ON o.id = oa.order_id
-                                  LEFT JOIN zipcode z ON z.id = oa.zipcode_id
-                                  LEFT JOIN provinces p ON p.id = z.province_id
-                                  LEFT JOIN geography g ON g.id = p.geo_id
-                         GROUP BY CASE WHEN p.name IN (
-                           'กรุงเทพมหานคร',
-                           'นนทบุรี',
-                           'ปทุมธานี',
-                           'สมุทรปราการ',
-                           'นครปฐม',
-                           'สมุทรสาคร'
-                         )
-                         THEN 'กรุงเทพและปริมณฑล'
-                         ELSE g.name
-                         END
-                         LIMIT 4
-                     ) t
+                             SELECT
+                                 CASE WHEN p.name IN (
+                                                      'กรุงเทพมหานคร',
+                                                      'นนทบุรี',
+                                                      'ปทุมธานี',
+                                                      'สมุทรปราการ',
+                                                      'นครปฐม',
+                                                      'สมุทรสาคร'
+                                     )
+                                          THEN 'กรุงเทพและปริมณฑล'
+                                      ELSE g.name
+                                     END AS geography,
+                                 COUNT(o) AS "totalOrders"
+                             FROM orders o
+                                      LEFT JOIN order_address oa ON o.id = oa.order_id
+                                      LEFT JOIN zipcode z ON z.id = oa.zipcode_id
+                                      LEFT JOIN provinces p ON p.id = z.province_id
+                                      LEFT JOIN geography g ON g.id = p.geo_id
+                             GROUP BY CASE WHEN p.name IN (
+                                                           'กรุงเทพมหานคร',
+                                                           'นนทบุรี',
+                                                           'ปทุมธานี',
+                                                           'สมุทรปราการ',
+                                                           'นครปฐม',
+                                                           'สมุทรสาคร'
+                                 )
+                                               THEN 'กรุงเทพและปริมณฑล'
+                                           ELSE g.name
+                                          END
+                             LIMIT 4
+                         ) t
                 ) AS "regionalRevenue",
                 (
                     SELECT COALESCE(json_agg(t), '[]')
                     FROM (
-                        SELECT p.name AS "productName", p.stock_quantity AS "stockQuantity"
-                        FROM products p
-                        ORDER BY updated_at DESC
-                        LIMIT 5
-                    ) t
+                             SELECT p.name AS "productName", p.stock_quantity AS "stockQuantity"
+                             FROM products p
+                             ORDER BY updated_at DESC
+                             LIMIT 5
+                         ) t
                 ) AS products,
                 (
                     SELECT COALESCE(json_agg(t), '[]')
                     FROM (
-                         SELECT
-                             r.review_score AS score,
-                             ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reviews), 2) AS "reviewScore"
-                         FROM reviews r
-                         GROUP BY r.review_score
-                         ORDER BY r.review_score
-                     ) t
+                             SELECT
+                                 r.review_score AS score,
+                                 ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reviews), 2) AS "reviewScore"
+                             FROM reviews r
+                             GROUP BY r.review_score
+                             ORDER BY r.review_score
+                         ) t
                 ) AS reviews
             FROM users
             LIMIT 1;
@@ -151,10 +178,10 @@ public class AdminDashboardRepository {
             String reviewsJson = rs.getString("reviews");
             
             try {
-                List<ActiveUserChartDTO> chart =
+                ActiveUserChartDTO chart =
                         objectMapper.readValue(
                                 weeklyJson,
-                                new TypeReference<List<ActiveUserChartDTO>>() {}
+                                ActiveUserChartDTO.class
                         );
                 
                 List<LatestOrderDTO> lastOrder = 
