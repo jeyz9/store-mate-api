@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class AdminDashboardDTO {
+public class OwnerDashboardDTO {
     private Integer activeUsers;
     private Integer newUsers;
     private ActiveUserChartDTO weeklyActiveUsersChart;
