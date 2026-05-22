@@ -87,7 +87,7 @@ public class ProductServiceImpl implements ProductService {
                     .build();
             
             productRepository.saveAndFlush(product);
-            product.setProductNo(RunningNumberUtil.generate("PRD", product.getId()));
+            product.setProductNo(RunningNumberUtil.generate("PRD"));
             productRepository.save(product);
             
             if(files != null && !files.isEmpty()){
