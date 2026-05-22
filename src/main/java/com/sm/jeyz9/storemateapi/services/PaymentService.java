@@ -78,125 +78,179 @@ public class PaymentService {
     @Transactional
     public Map<String, String> checkoutIntent(String email, CheckoutRequestDTO request) {
         try {
-            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            Order order = Order.builder()
-                    .id(null)
-                    .status(OrderStatusName.PENDING)
-                    .user(user)
-                    .createdAt(LocalDateTime.now())
-                    .orderChannel(OrderChannelName.WEBSITE)
-                    .checkoutType(request.getCheckoutType())
-                    .build();
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            List<OrderItem> orderItems = request.getIds().stream().map(c -> {
-                CartItem cartItem = cartItemRepository.findById(c).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart Item not found"));
+            OrderStatusName status =
+                    request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)
+                            ? OrderStatusName.PROCESSING
+                            : OrderStatusName.PENDING;
+
+            Order order = createOrder(user, request.getCheckoutType(), status);
+
+            List<OrderItem> orderItems = request.getIds().stream().map(id -> {
+
+                CartItem cartItem = cartItemRepository.findById(id)
+                        .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Cart item not found"));
+
                 if (!cartItem.getCart().getUser().getId().equals(user.getId())) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
                 }
-                
+
                 cartItemRepository.delete(cartItem);
 
                 return OrderItem.builder()
-                        .id(null)
                         .product(cartItem.getProduct())
                         .quantity(cartItem.getQuantity())
                         .order(order)
                         .build();
+
             }).toList();
+
+            orderItemRepository.saveAll(orderItems);
+
+            handleCreateOrderAddress(user, order);
 
             Map<String, String> res = new HashMap<>();
 
-            if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                long total = (long) (orderItems.stream().mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum() * 100);
+            if (
+                    request.getCheckoutType().equals(CheckoutTypeName.CARD)
+                            || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)
+            ) {
+
+                long total = (long) (
+                        orderItems.stream()
+                                .mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity())
+                                .sum() * 100
+                );
+
                 if (total < 1) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
                 }
+
                 PaymentIntent intent = handleStripeIntent(total, user.getEmail());
+
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
 
                 orderRepository.save(order);
-                orderItemRepository.saveAll(orderItems);
-                handleCreateOrderAddress(user, order);
+
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
 
                 return res;
-            }else if(request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
-                order.setStatus(OrderStatusName.PROCESSING);
             }
 
-            orderRepository.save(order);
-            orderItemRepository.saveAll(orderItems);
-            handleCreateOrderAddress(user, order);
             res.put("message", "create order success");
+            res.put("orderNo", order.getOrderNo());
+
             return res;
-        }catch (WebException e) {
+
+        } catch (WebException e) {
             throw e;
-        }catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        } catch (Exception e) {
+            throw new WebException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Server Error: " + e.getMessage()
+            );
         }
     }
-    
+
     @Transactional
     public Map<String, String> checkoutNow(String email, CheckoutNowRequestDTO request) {
         try {
-            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
-            Product product = productRepository.findById(request.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
-            if (!(product.getStock_quantity() > 0 && product.getProductStatus().getId().equals(1L) && product.getStock_quantity() >= request.getQuantity())) {
-                throw new WebException(HttpStatus.BAD_REQUEST, "Product is unavailable");
+
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() ->
+                            new WebException(HttpStatus.NOT_FOUND, "User not found")
+                    );
+
+            Product product = productRepository.findById(request.getId())
+                    .orElseThrow(() ->
+                            new WebException(HttpStatus.NOT_FOUND, "Product not found")
+                    );
+
+            if (
+                    !(product.getStock_quantity() > 0
+                            && product.getProductStatus().getId().equals(1L)
+                            && product.getStock_quantity() >= request.getQuantity())
+            ) {
+                throw new WebException(
+                        HttpStatus.BAD_REQUEST,
+                        "Product is unavailable"
+                );
             }
 
-            Order order = Order.builder()
-                    .id(null)
-                    .status(OrderStatusName.PENDING)
-                    .user(user)
-                    .createdAt(LocalDateTime.now())
-                    .orderChannel(OrderChannelName.WEBSITE)
-                    .checkoutType(request.getCheckoutType())
-                    .build();
+            OrderStatusName status =
+                    request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)
+                            ? OrderStatusName.PROCESSING
+                            : OrderStatusName.PENDING;
+
+            Order order = createOrder(
+                    user,
+                    request.getCheckoutType(),
+                    status
+            );
 
             OrderItem orderItem = OrderItem.builder()
-                    .id(null)
                     .product(product)
                     .quantity(request.getQuantity())
                     .order(order)
                     .build();
 
+            orderItemRepository.save(orderItem);
+
+            handleCreateOrderAddress(user, order);
+
             Map<String, String> res = new HashMap<>();
 
-            if (request.getCheckoutType().equals(CheckoutTypeName.CARD) || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)) {
-                long total = (long) ((orderItem.getProduct().getPrice() * orderItem.getQuantity()) * 100);
+            if (
+                    request.getCheckoutType().equals(CheckoutTypeName.CARD)
+                            || request.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)
+            ) {
+
+                long total = (long) (
+                        product.getPrice() * request.getQuantity() * 100
+                );
+
                 if (total < 1) {
-                    throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
+                    throw new WebException(
+                            HttpStatus.BAD_REQUEST,
+                            "Invalid total amount"
+                    );
                 }
-                PaymentIntent intent = handleStripeIntent(total, user.getEmail());
+
+                PaymentIntent intent = handleStripeIntent(
+                        total,
+                        user.getEmail()
+                );
+
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
 
                 orderRepository.save(order);
-                orderItemRepository.save(orderItem);
-                handleCreateOrderAddress(user, order);
+
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
 
                 return res;
-            }else if(request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
-                order.setStatus(OrderStatusName.PROCESSING);
             }
 
-            orderRepository.save(order);
-            orderItemRepository.save(orderItem);
-            handleCreateOrderAddress(user, order);
             res.put("message", "create order success");
+            res.put("orderNo", order.getOrderNo());
+
             return res;
-        }catch (WebException e) {
+
+        } catch (WebException e) {
             throw e;
-        }catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        } catch (Exception e) {
+            throw new WebException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Server Error: " + e.getMessage()
+            );
         }
     }
     
@@ -241,7 +295,7 @@ public class PaymentService {
                 .reason(request.getReason())
                 .description(request.getDescription())
                 .requestedAt(LocalDateTime.now())
-                .refundNo(RunningNumberUtil.generate("REF", order.getId()))
+                .refundNo(RunningNumberUtil.generate("REF"))
                 .build();
         refundRequestRepository.save(refund);
         return "Send refund successfully";
@@ -375,5 +429,18 @@ public class PaymentService {
                 .build();
         
         orderAddressRepository.save(orderAddress);
+    }
+
+    private Order createOrder(User user, CheckoutTypeName checkoutType, OrderStatusName status) {
+        Order order = Order.builder()
+                .orderNo(RunningNumberUtil.generate("ORD"))
+                .status(status)
+                .user(user)
+                .createdAt(LocalDateTime.now())
+                .orderChannel(OrderChannelName.WEBSITE)
+                .checkoutType(checkoutType)
+                .build();
+
+        return orderRepository.save(order);
     }
 }

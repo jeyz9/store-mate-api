@@ -4,9 +4,11 @@ import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.models.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -25,4 +27,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         ORDER BY p.updated_at DESC;
     """, nativeQuery = true)
     List<ProductModDTO> findAllProductModerator();
+    
+    @Query(value = """
+        SELECT * FROM products WHERE name = :name;
+    """, nativeQuery = true)
+    Optional<Product> findByName(@Param("name") String name);
 }
