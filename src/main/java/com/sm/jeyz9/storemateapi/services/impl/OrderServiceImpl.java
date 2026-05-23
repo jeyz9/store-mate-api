@@ -169,16 +169,23 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public OrderModDetailsDTO getOrderDetailsByModerator(String orderNo) {
-        Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-        List<OrderStatusHistory> orderHistory = orderStatusHistoryRepository.findByOrderId(order.getId());
-        OrderModDetailsDTO orderModDetails = modelMapper.map(mapToOrderDetailsDTO(order), OrderModDetailsDTO.class);
-        orderModDetails.setOrderStatusHistory(orderHistory.stream().map(oh -> OrderStatusHistoryDTO.builder()
-                .updatedBy(oh.getUser().getName())
-                .status(oh.getStatus().name())
-                .updatedAt(oh.getCreatedAt())
-                .build()).toList());
-        
-        return orderModDetails;
+        try {
+            Order order = orderRepository.findOneByOrderNo(orderNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+            List<OrderStatusHistory> orderHistory = orderStatusHistoryRepository.findByOrderId(order.getId());
+            OrderModDetailsDTO orderModDetails = modelMapper.map(mapToOrderDetailsDTO(order), OrderModDetailsDTO.class);
+            if(orderModDetails != null) {
+                orderModDetails.setOrderStatusHistory(orderHistory.stream().map(oh -> OrderStatusHistoryDTO.builder()
+                        .updatedBy(oh.getUser().getName())
+                        .status(oh.getStatus().name())
+                        .updatedAt(oh.getCreatedAt())
+                        .build()).toList());
+            }
+            
+            return orderModDetails;
+        }catch (Exception e) {
+            e.printStackTrace();
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
 
     @Override

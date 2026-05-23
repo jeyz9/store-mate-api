@@ -1,7 +1,6 @@
 spring:
   jpa:
-    jpa:
-      show-sql: true
+    show-sql: true
     hibernate:
       ddl-auto: none
   datasource:
