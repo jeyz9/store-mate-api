@@ -38,6 +38,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -110,44 +111,59 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
-    public List<OrderModDTO> getAllOrders(String keyword, LocalDate startDate, LocalDate endDate, String period) {
-        List<Order> orders = orderRepository.findAll();
-        Stream<Order> stream = orders.stream();
-        if(keyword != null && !keyword.trim().isBlank()) {
-            stream = stream.filter(o -> o.getUser().getName().toLowerCase().contains(keyword.toLowerCase()) || o.getUser().getPhone().equals(keyword));
-        }
-        
+    @Transactional(readOnly = true)
+    public Page<OrderModDTO> getAllOrders(String keyword, LocalDate startDate, LocalDate endDate, String period, Integer page, Integer size) {
+        LocalDateTime start = null;
+        LocalDateTime end = null;
+
         if(startDate != null) {
-            stream = stream.filter(o -> !o.getCreatedAt().isBefore(startDate.atStartOfDay()));
+            start = startDate.atStartOfDay();
         }
-        
+
         if(endDate != null) {
-            stream = stream.filter(o -> !o.getCreatedAt().isAfter(endDate.atTime(LocalTime.MAX)));
+            end = endDate.atTime(LocalTime.MAX);
         }
         
         if(period != null && !period.trim().isBlank()) {
+
+            LocalDate today = LocalDate.now();
+
             switch (period.toUpperCase()) {
+
                 case "TODAY" -> {
-                    LocalDate today = LocalDate.now();
-                    stream = stream.filter(o -> o.getCreatedAt().toLocalDate().isEqual(today));
+                    start = today.atStartOfDay();
+                    end = today.atTime(LocalTime.MAX);
                 }
-                
+
                 case "WEEK" -> {
-                    LocalDateTime startOfWeek = LocalDate.now().with(DayOfWeek.MONDAY).atStartOfDay();
-                    stream = stream.filter(o -> !o.getCreatedAt().isBefore(startOfWeek));
+                    start = today.with(DayOfWeek.MONDAY).atStartOfDay();
+                    end = LocalDateTime.now();
                 }
-                
+
                 case "MONTH" -> {
-                    LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
-                    stream = stream.filter(o -> !o.getCreatedAt().isBefore(startOfMonth));
+                    start = today.withDayOfMonth(1).atStartOfDay();
+                    end = LocalDateTime.now();
                 }
-                
-                default -> throw new WebException(HttpStatus.BAD_REQUEST, "Invalid period");
+
+                default -> throw new WebException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid period"
+                );
             }
         }
-        
-        return mapToOrderModDTO(stream.sorted(Comparator.comparing(Order::getCreatedAt).reversed()).toList());
+
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        return orderRepository.findOrders(
+                keyword,
+                start,
+                end,
+                pageable
+        ).map(this::mapToOrderModDTO);
     }
 
     @Override
@@ -356,21 +372,37 @@ public class OrderServiceImpl implements OrderService {
                 }
         ).toList();
     }
-    
-    private List<OrderModDTO> mapToOrderModDTO(List<Order> orders) {
-        return orders.stream().map(o -> {
-            Double total = o.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum();
-            return OrderModDTO.builder()
-                    .id(o.getId())
-                    .orderNo(o.getOrderNo())
-                    .recipientName(o.getUser().getName())
-                    .phone(o.getUser().getPhone())
-                    .createdAt(o.getCreatedAt())
-                    .total(total)
-                    .shippingFrom(o.getOrderChannel() != null ? o.getOrderChannel().name() : null)
-                    .status(o.getStatus() != null ? o.getStatus().name() : null)
-                    .build();
-        }).toList();
+
+    private OrderModDTO mapToOrderModDTO(Order o) {
+
+        Double total = o.getOrderItems()
+                .stream()
+                .mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity())
+                .sum();
+
+        OrderAddress address = o.getOrderAddresses()
+                .stream()
+                .findFirst()
+                .orElse(null);
+
+        return OrderModDTO.builder()
+                .id(o.getId())
+                .orderNo(o.getOrderNo())
+                .recipientName(address != null ? address.getRecipientName() : null)
+                .phone(address != null ? address.getPhone() : null)
+                .createdAt(o.getCreatedAt())
+                .total(total)
+                .shippingFrom(
+                        o.getOrderChannel() != null
+                                ? o.getOrderChannel().name()
+                                : null
+                )
+                .status(
+                        o.getStatus() != null
+                                ? o.getStatus().name()
+                                : null
+                )
+                .build();
     }
     
     private String formatAddress(String address, Zipcode zipcode) {

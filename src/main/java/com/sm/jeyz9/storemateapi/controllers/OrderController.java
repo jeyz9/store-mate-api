@@ -14,6 +14,7 @@ import com.sm.jeyz9.storemateapi.services.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -73,8 +74,15 @@ public class OrderController {
         endDate: ค้นหาถึงวันที่ เช่น 2026-04-25 YYYY-MM-DD
         period: TODAY, WEEK, MONTH
     """)
-    public ResponseEntity<List<OrderModDTO>> getAllOrders(@RequestParam(name = "keyword", required = false) String keyword, @RequestParam(name = "startDate", required = false) LocalDate startDate, @RequestParam(name = "endDate", required = false) LocalDate endDate, @RequestParam(name = "period", required = false) String period) {
-        return new ResponseEntity<>(orderService.getAllOrders(keyword, startDate, endDate, period), HttpStatus.OK);
+    public ResponseEntity<Page<OrderModDTO>> getAllOrders(
+            @RequestParam(name = "keyword", required = false) String keyword, 
+            @RequestParam(name = "startDate", required = false) LocalDate startDate, 
+            @RequestParam(name = "endDate", required = false) LocalDate endDate, 
+            @RequestParam(name = "period", required = false) String period,
+            @RequestParam(defaultValue = "0", required = false) Integer page,
+            @RequestParam(defaultValue = "10", required = false) Integer size
+    ) {
+        return new ResponseEntity<>(orderService.getAllOrders(keyword, startDate, endDate, period, page, size), HttpStatus.OK);
     }
     
     @GetMapping("/moderator/orders/{orderNo}")
