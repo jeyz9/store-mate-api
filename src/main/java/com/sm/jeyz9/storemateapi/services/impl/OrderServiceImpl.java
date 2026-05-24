@@ -258,32 +258,37 @@ public class OrderServiceImpl implements OrderService {
     
     @Override
     public RefundPaginationDTO getAllOrdersRefund(int page, int size) {
-        List<RefundRequest> refundRequests = refundRequestRepository.findAll();
-        List<RefundDTO> refunds = refundRequests.stream().map(r -> RefundDTO.builder()
-                .refundNo(r.getRefundNo())
-                .receiverName(r.getUser().getName())
-                .orderNo(r.getOrder().getOrderNo())
-                .total(r.getOrder().getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
-                .reason(r.getReason())
-                .requestedAt(r.getRequestedAt())
-                .status(r.getStatus().name())
-                .build()).toList();
+        try {
+            List<RefundRequest> refundRequests = refundRequestRepository.findAll();
+            List<RefundDTO> refunds = refundRequests.stream().map(r -> RefundDTO.builder()
+                    .refundNo(r.getRefundNo())
+                    .receiverName(r.getUser().getName())
+                    .orderNo(r.getOrder().getOrderNo())
+                    .total(r.getOrder().getOrderItems().stream().mapToDouble(o -> o.getProduct().getPrice() * o.getQuantity()).sum())
+                    .reason(r.getReason())
+                    .requestedAt(r.getRequestedAt())
+                    .status(r.getStatus().name())
+                    .build()).toList();
 
-        Pageable pageable = PageRequest.of(page, size);
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), refunds.size());
-        int total = refunds.size();
-        
-        List<RefundDTO> refundList = refunds.subList(start, end);
-        Page<RefundDTO> refundPage = new PageImpl<>(refundList, pageable, refunds.size());
-        
-        return RefundPaginationDTO.builder()
-                .refunds(refundPage.getContent())
-                .page(page)
-                .size(size)
-                .pendingCount((int) refundRequests.stream().filter(r -> r.getStatus().equals(RefundStatusName.PENDING)).count())
-                .total(total)
-                .build();
+            Pageable pageable = PageRequest.of(page, size);
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), refunds.size());
+            int total = refunds.size();
+
+            List<RefundDTO> refundList = refunds.subList(start, end);
+            Page<RefundDTO> refundPage = new PageImpl<>(refundList, pageable, refunds.size());
+
+            return RefundPaginationDTO.builder()
+                    .refunds(refundPage.getContent())
+                    .page(page)
+                    .size(size)
+                    .pendingCount((int) refundRequests.stream().filter(r -> r.getStatus().equals(RefundStatusName.PENDING)).count())
+                    .total(total)
+                    .build();
+        }catch (Exception e) {
+            e.printStackTrace();
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
     
     @Override
