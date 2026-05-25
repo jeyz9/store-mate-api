@@ -254,26 +254,6 @@ public class PaymentService {
         }
     }
     
-    public Map<String, String> refund(String orderNo, String email) {
-        try{
-            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
-            Order order = orderRepository.findOrderByOrderNoAndUserId(orderNo, user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
-            long amount = (long) (order.getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
-
-            Stripe.apiKey = secretKey;
-            RefundCreateParams params = RefundCreateParams.builder()
-                    .setPaymentIntent(order.getStripePaymentIntent())
-                    .setAmount(amount)
-                    .build();
-            Refund.create(params);
-            return Map.of("status", "REFUND");
-        }catch (WebException e) {
-            throw e;
-        }catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
-        }
-    }
-    
     @Transactional
     public String sendRefundRequest(RefundRequestDTO request, String email) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
@@ -302,8 +282,8 @@ public class PaymentService {
     }
     
     @Transactional
-    public String refundApprove(Long refundId) {
-        RefundRequest refundRequest = refundRequestRepository.findById(refundId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
+    public String refundApprove(String refundNo) {
+        RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
         
         if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
             throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
@@ -332,8 +312,8 @@ public class PaymentService {
         return "Approve refund request success";
     }
 
-    public String refundReject(Long refundId) {
-        RefundRequest refundRequest = refundRequestRepository.findById(refundId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
+    public String refundReject(String refundNo) {
+        RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
         if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
             throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't rejected");
         }
