@@ -93,10 +93,11 @@ public class OwnerDashboardRepository {
                     FROM (
                              SELECT
                                  o.order_no AS "orderNo",
-                                 u.name,
+                                 oa.recipient_name,
                                  o.status
                              FROM orders o
                                       LEFT JOIN users u ON o.user_id = u.id
+                                      LEFT JOIN order_address oa ON oa.order_id = o.id
                              ORDER BY o.created_at DESC
                              LIMIT 6
                          ) t
@@ -115,6 +116,7 @@ public class OwnerDashboardRepository {
                                       GROUP BY o.order_channel
                                   ) t
                              GROUP BY t.order_channel, t.order_score
+                             ORDER BY avg DESC
                          ) t
                 ) AS "orderChannelRate",
                 (
