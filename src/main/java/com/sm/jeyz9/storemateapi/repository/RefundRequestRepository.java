@@ -17,10 +17,8 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
         SELECT COUNT(*) > 0 FROM refund_requests WHERE status = :status AND order_id = :orderId;
     """, nativeQuery = true)
     boolean existsByStatusAndOrderId(@Param("status") String status, @Param("orderId") Long orderId);
-    
-    @Query(value = """
-        SELECT * FROM refund_requests WHERE refund_no = :refundNo;
-    """, nativeQuery = true)
+
+    @EntityGraph(attributePaths = {"user", "order", "order.orderItems", "order.orderItems.product"})
     Optional<RefundRequest> findOneByRefundNo(@Param("refundNo") String refundNo);
 
     @EntityGraph(attributePaths = {"user", "order", "order.orderItems", "order.orderItems.product"})
