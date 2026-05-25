@@ -93,7 +93,7 @@ public class OwnerDashboardRepository {
                     FROM (
                              SELECT
                                  o.order_no AS "orderNo",
-                                 oa.recipient_name,
+                                 oa.recipient_name AS name,
                                  o.status
                              FROM orders o
                                       LEFT JOIN users u ON o.user_id = u.id
