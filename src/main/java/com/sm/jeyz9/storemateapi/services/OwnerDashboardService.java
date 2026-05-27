@@ -167,7 +167,7 @@ public class OwnerDashboardService {
         }
 
         CellValue cellValue = evaluator.evaluate(cell);
-        if(cellValue == null) return null;
+        if(cellValue == null) return 0;
 
         return switch (cellValue.getCellType()) {
             case NUMERIC -> (int) cellValue.getNumberValue();
