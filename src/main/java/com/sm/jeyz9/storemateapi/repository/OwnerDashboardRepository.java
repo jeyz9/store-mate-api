@@ -242,7 +242,7 @@ public class OwnerDashboardRepository {
     public Optional<SalesAnalyticsDashboardDTO> findSalesAnalyticsDashboard(String period) {
         String sql = """
                 SELECT
-                    COALESCE(SUM(o.totalPrice), 0) AS "totalPrice",
+                    COALESCE(SUM(o.total_price), 0) AS "totalPrice",
                     COALESCE(COUNT(DISTINCT o.id), 0) AS "totalOrder",
                     (
                         SELECT COALESCE(json_agg(t), '[]')
@@ -271,7 +271,7 @@ public class OwnerDashboardRepository {
                                           ELSE g.name
                                          END AS geography,
                                      COUNT(DISTINCT o.id) AS "totalOrder",
-                                     COALESCE(SUM(o.totalPrice), 0) AS "totalRevenue",
+                                     COALESCE(SUM(o.total_price), 0) AS "totalRevenue",
                                      COUNT(DISTINCT o.user_id) AS "totalUser"
                                  FROM orders o
                                           LEFT JOIN order_address oa ON o.id = oa.order_id
