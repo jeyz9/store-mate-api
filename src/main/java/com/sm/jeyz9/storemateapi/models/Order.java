@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.models;
 
+import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,8 +22,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "orders")
@@ -57,15 +58,20 @@ public class Order {
     
     private LocalDateTime paidAt;
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<OrderItem> orderItems = new HashSet<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<OrderAddress> orderAddresses = new HashSet<>();
     
-    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private List<OrderItem> orderItems;
-    
-    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private List<OrderAddress> orderAddresses;
-    
+    private boolean printed;
+    private Double totalPrice;
+
     @PrePersist
-    public void perPersist() {
-        this.orderNo = UUID.randomUUID().toString();
+    public void prePersist() {
+        this.orderNo = RunningNumberUtil.generate("ORD");
     }
 }

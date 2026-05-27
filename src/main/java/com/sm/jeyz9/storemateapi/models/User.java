@@ -55,4 +55,8 @@ public class User {
     private Set<Role> roles = new HashSet<>();
     
     private LocalDateTime createdAt = LocalDateTime.now();
+    
+    private boolean isSuspended;
+    private LocalDateTime suspendAt;
+    private LocalDateTime lastSeenAt;
 }

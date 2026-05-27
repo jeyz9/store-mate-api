@@ -38,4 +38,6 @@ public class OrderAddress {
     private Zipcode zipcode;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+    private String recipientName;
+    private String phone;
 }
