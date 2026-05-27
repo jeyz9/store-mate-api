@@ -242,7 +242,7 @@ public class OwnerDashboardRepository {
     public Optional<SalesAnalyticsDashboardDTO> findSalesAnalyticsDashboard(String period) {
         String sql = """
                 SELECT
-                    COALESCE(SUM(oi.quantity * pd.price), 0) AS "totalPrice",
+                    COALESCE(SUM(o.total_price), 0) AS "totalPrice",
                     COALESCE(COUNT(DISTINCT o.id), 0) AS "totalOrder",
                     (
                         SELECT COALESCE(json_agg(t), '[]')
@@ -271,7 +271,7 @@ public class OwnerDashboardRepository {
                                           ELSE g.name
                                          END AS geography,
                                      COUNT(DISTINCT o.id) AS "totalOrder",
-                                     COALESCE(SUM(oi.quantity * pd.price), 0) AS "totalRevenue",
+                                     COALESCE(SUM(o.total_price), 0) AS "totalRevenue",
                                      COUNT(DISTINCT o.user_id) AS "totalUser"
                                  FROM orders o
                                           LEFT JOIN order_address oa ON o.id = oa.order_id
@@ -313,12 +313,10 @@ public class OwnerDashboardRepository {
                                          END AS geography,
                                      ROUND(
                                              (
-                                                 COALESCE(SUM(oi.quantity * pd.price), 0) * 100.0 /
+                                                 COALESCE(SUM(o.total_price), 0) * 100.0 /
                                                  (
-                                                     SELECT COALESCE(SUM(oi2.quantity * pd2.price), 0)
+                                                     SELECT COALESCE(SUM(o2.total_price), 0)
                                                      FROM orders o2
-                                                              LEFT JOIN order_items oi2 ON oi2.order_id = o2.id
-                                                              LEFT JOIN products pd2 ON pd2.id = oi2.product_id
                                                      WHERE o2.status NOT IN ('PENDING', 'CANCELLED', 'REFUND')
                                                  )
                                                  )::numeric, 2
@@ -391,8 +389,6 @@ public class OwnerDashboardRepository {
                      ) t
                     ) AS "regionalUsers"
                 FROM orders o
-                         LEFT JOIN order_items oi ON oi.order_id = o.id
-                         LEFT JOIN products pd ON pd.id = oi.product_id
                 WHERE o.status NOT IN ('PENDING', 'CANCELLED', 'REFUND');        
         """;
         

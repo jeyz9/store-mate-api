@@ -17,7 +17,6 @@ import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OwnerDashboardRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductRepository;
 import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
-import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellValue;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -44,18 +43,14 @@ public class OwnerDashboardService {
     private final OwnerDashboardRepository ownerDashboardRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final ZipcodeRepository zipcodeRepository;
-    private final OrderAddressRepository orderAddressRepository;
 
     @Autowired
-    public OwnerDashboardService(OwnerDashboardRepository ownerDashboardRepository, ProductRepository productRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, ZipcodeRepository zipcodeRepository, OrderAddressRepository orderAddressRepository) {
+    public OwnerDashboardService(OwnerDashboardRepository ownerDashboardRepository, ProductRepository productRepository, OrderRepository orderRepository, ZipcodeRepository zipcodeRepository) {
         this.ownerDashboardRepository = ownerDashboardRepository;
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
         this.zipcodeRepository = zipcodeRepository;
-        this.orderAddressRepository = orderAddressRepository;
     }
     
     public OwnerDashboardDTO getAdminDashboard() {
@@ -94,6 +89,7 @@ public class OwnerDashboardService {
                         .zipcode(getString(row.getCell(9)))
                         .products(buildProducts(row, evaluator))
                         .returned(parseReturned(getString(row.getCell(31))))
+                        .totalPrice(sumPrice(row, evaluator))
                         .build();
 
                 results.add(dto);
@@ -221,6 +217,7 @@ public class OwnerDashboardService {
                     .build();
 
             order.getOrderAddresses().add(orderAddress);
+            order.setTotalPrice(shipping.getTotalPrice());
 
             Set<OrderItem> orderItems = shipping.getProducts()
                     .stream()
@@ -247,5 +244,9 @@ public class OwnerDashboardService {
 
             orderRepository.save(order);
         }
+    }
+    
+    private double sumPrice(Row row, FormulaEvaluator evaluator) {
+        return getIntegerCellValue(row.getCell(23), evaluator) + getIntegerCellValue(row.getCell(24), evaluator);
     }
 }

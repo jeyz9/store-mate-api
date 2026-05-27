@@ -104,11 +104,15 @@ public class PaymentService {
                         .product(cartItem.getProduct())
                         .quantity(cartItem.getQuantity())
                         .order(order)
+                        .unitPrice(cartItem.getProduct().getPrice())
                         .build();
 
             }).toList();
 
             orderItemRepository.saveAll(orderItems);
+            
+            double totalPrice = orderItems.stream().mapToDouble(o -> o.getUnitPrice() * o.getQuantity()).sum();
+            order.setTotalPrice(totalPrice);
 
             handleCreateOrderAddress(user, order);
 
@@ -198,9 +202,13 @@ public class PaymentService {
                     .product(product)
                     .quantity(request.getQuantity())
                     .order(order)
+                    .unitPrice(product.getPrice())
                     .build();
 
             orderItemRepository.save(orderItem);
+
+            double totalPrice = orderItem.getUnitPrice() * orderItem.getQuantity();
+            order.setTotalPrice(totalPrice);
 
             handleCreateOrderAddress(user, order);
 
