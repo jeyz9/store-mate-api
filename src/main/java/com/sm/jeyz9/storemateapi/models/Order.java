@@ -68,6 +68,7 @@ public class Order {
     private Set<OrderAddress> orderAddresses = new HashSet<>();
     
     private boolean printed;
+    private Double totalPrice;
 
     @PrePersist
     public void prePersist() {
