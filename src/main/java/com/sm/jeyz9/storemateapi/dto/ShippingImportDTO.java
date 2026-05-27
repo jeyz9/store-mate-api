@@ -14,4 +14,5 @@ public class ShippingImportDTO {
     private String zipcode;
     private List<ProductImportDTO> products;
     private Boolean returned;
+    private Double totalPrice;
 }
