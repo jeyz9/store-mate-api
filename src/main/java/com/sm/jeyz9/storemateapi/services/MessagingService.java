@@ -1,9 +1,11 @@
 package com.sm.jeyz9.storemateapi.services;
 
-import com.sm.jeyz9.storemateapi.models.RoleName;
+import com.sm.jeyz9.storemateapi.dto.NotifyRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
+import com.sm.jeyz9.storemateapi.models.Notification;
+import com.sm.jeyz9.storemateapi.models.SendTo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -24,16 +26,18 @@ public class MessagingService {
         messagingTemplate.convertAndSendToUser(email, "/queue/notifications", payload);
     }
     
-    public void sendNotifyToUser(String role) {
-        Map<String, String> payload = new HashMap<>();
-        payload.put("TEST", "MESSAGE");
-        System.out.println("SENDING MESSAGE");
-        System.out.printf("input: %s : pk: %s", RoleName.valueOf(role), RoleName.USER);
-        if(RoleName.valueOf(role).equals(RoleName.USER)){
+    public void sendNotifyToUser(Notification request) {
+        NotifyResponseDTO payload = NotifyResponseDTO.builder()
+                .id(request.getId())
+                .title(request.getTitle())
+                .message(request.getMessage())
+                .createdAt(request.getCreatedAt())
+                .build();
+        if(request.getSendTo().equals(SendTo.CUSTOMER)){
             messagingTemplate.convertAndSend("/topic/customer", payload);
-        }else if (RoleName.valueOf(role).equals(RoleName.ADMIN)) {
-            messagingTemplate.convertAndSend("/topic/admin", payload);
-        } else if (RoleName.valueOf(role).equals(RoleName.MODERATOR)) {
+        }else if (request.getSendTo().equals(SendTo.ALL)) {
+            messagingTemplate.convertAndSend("/topic/all", payload);
+        } else if (request.getSendTo().equals(SendTo.MODERATOR)) {
             messagingTemplate.convertAndSend("/topic/moderator", payload);
         }
     }
