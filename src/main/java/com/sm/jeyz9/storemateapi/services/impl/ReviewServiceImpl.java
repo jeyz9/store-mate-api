@@ -40,6 +40,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public List<ReviewDTO> getReviewsByProductId(Long productId) {
+        try{
         productRepository.findById(productId)
                 .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
 
@@ -57,11 +58,18 @@ public class ReviewServiceImpl implements ReviewService {
                         .orderNo(review.getOrderItem().getOrder().getOrderNo())
                         .build())
                 .toList();
+        } catch (WebException e) {
+            throw e;
+        }catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
+        }
     }
+
 
     @Override
     @Transactional
     public String addReview(Long orderItemId, String userEmail, ReviewRequestDTO request) {
+        try{
         User user = userRepository.findUserByEmail(userEmail)
                 .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
 
@@ -87,7 +95,12 @@ public class ReviewServiceImpl implements ReviewService {
 
         reviewRepository.save(review);
         return "Review added successfully.";
+    } catch (WebException e) {
+        throw e;
+    }catch (Exception e) {
+        throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
     }
+}
 
     @Override
     @Transactional
@@ -107,6 +120,8 @@ public class ReviewServiceImpl implements ReviewService {
 
         reviewRepository.save(review);
         return "Review updated successfully.";
+        } catch (WebException e) {
+            throw e;
         }catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
         }
@@ -126,6 +141,8 @@ public class ReviewServiceImpl implements ReviewService {
 
         reviewRepository.delete(review);
         return "Review deleted successfully.";
+        } catch (WebException e) {
+            throw e;
         }catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
         }
