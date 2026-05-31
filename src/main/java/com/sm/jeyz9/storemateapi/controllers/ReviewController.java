@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
+import com.sm.jeyz9.storemateapi.dto.ReviewDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewRequestDTO;
 import com.sm.jeyz9.storemateapi.services.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -22,15 +24,20 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    @Operation(summary = "เพิ่มรีวิวสินค้า")
-    @PostMapping("/products/{productId}/reviews")
+    @Operation(summary = "ดูรีวิวสินค้าตาม productId")
+    @GetMapping("/reviews/{productId}")
+    public ResponseEntity<List<ReviewDTO>> getReviewsByProductId(@PathVariable Long productId) {
+        return ResponseEntity.ok(reviewService.getReviewsByProductId(productId));
+    }
+
+    @PostMapping("/reviews/{orderItemId}")
     public ResponseEntity<String> addReview(
-            @PathVariable Long productId,
+            @PathVariable Long orderItemId,
             @Valid @RequestBody ReviewRequestDTO request,
-            Principal principal // รับ User ที่ทำการ Login อยู่ปัจจุบัน
+            Principal principal
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(reviewService.addReview(productId, principal.getName(), request));
+                .body(reviewService.addReview(orderItemId, principal.getName(), request));
     }
 
     @Operation(summary = "แก้ไขรีวิวสินค้า")

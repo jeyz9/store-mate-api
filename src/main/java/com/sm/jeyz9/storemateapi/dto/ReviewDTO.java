@@ -19,4 +19,5 @@ public class ReviewDTO {
     private Float reviewScore;
     private String message;
     private LocalDateTime createdAt;
+    private String orderNo;
 }
