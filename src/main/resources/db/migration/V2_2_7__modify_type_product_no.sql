@@ -1,0 +1,1 @@
+ALTER TABLE products ALTER COLUMN product_no TYPE VARCHAR(50);
