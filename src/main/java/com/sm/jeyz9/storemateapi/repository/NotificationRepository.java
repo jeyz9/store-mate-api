@@ -3,6 +3,8 @@ package com.sm.jeyz9.storemateapi.repository;
 import com.sm.jeyz9.storemateapi.dto.NotifyOwnerResponseDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
 import com.sm.jeyz9.storemateapi.models.Notification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,5 +30,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         SELECT DISTINCT n.id, n.title, n.message, n.send_to, n.created_at FROM notifications n WHERE n.send_to IN ('ALL', 'CUSTOMER', 'MODERATOR')
     """, nativeQuery = true)
     List<NotifyOwnerResponseDTO> getAllNotify();
+    
+    @Query(value = """
+        SELECT DISTINCT n.id, n.title, n.message, n.send_to, n.created_at
+        FROM notifications n
+        WHERE n.send_to IN ('ALL', 'CUSTOMER', 'MODERATOR')
+            AND 
+                (
+                :keyword IS NULL
+                OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            )
+    """, nativeQuery = true)
+    Page<Notification> findNotification(@Param("keyword") String keyword, Pageable pageable);
     
 }
