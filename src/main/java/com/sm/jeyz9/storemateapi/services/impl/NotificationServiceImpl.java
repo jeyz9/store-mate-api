@@ -64,8 +64,7 @@ public class NotificationServiceImpl implements NotificationService {
     public Page<NotifyOwnerResponseDTO> getAllNotify(String keyword, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(
                 page,
-                size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                size
         );
         return notificationRepository.findNotification(keyword, pageable).map(this::mapToNotifyOwner);
     }
