@@ -32,15 +32,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<NotifyOwnerResponseDTO> getAllNotify();
     
     @Query(value = """
-        SELECT DISTINCT n.id, n.title, n.message, n.send_to, n.created_at
-        FROM notifications n
-        WHERE n.send_to IN ('ALL', 'CUSTOMER', 'MODERATOR')
-            AND 
+        SELECT n
+        FROM Notification n
+        WHERE n.sendTo IN ('ALL', 'CUSTOMER', 'MODERATOR')
+            AND
                 (
                 :keyword IS NULL
                 OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
             )
-    """, nativeQuery = true)
+        ORDER BY n.createdAt DESC
+    """)
     Page<Notification> findNotification(@Param("keyword") String keyword, Pageable pageable);
     
 }
