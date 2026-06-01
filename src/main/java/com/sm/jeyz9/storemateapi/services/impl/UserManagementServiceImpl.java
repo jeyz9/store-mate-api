@@ -56,7 +56,6 @@ public class UserManagementServiceImpl implements UserManagementService {
                 .phone(user.getPhone())
                 .role(role)
                 .isSuspended(user.isSuspended())
-                .suspensionReason(user.getSuspension_reason())
                 .suspendAt(user.getSuspendAt())
                 .build();
     }
@@ -164,7 +163,6 @@ public class UserManagementServiceImpl implements UserManagementService {
             }
 
             targetUser.setSuspended(false);
-            targetUser.setSuspension_reason(null);
             targetUser.setSuspendAt(null);
             userRepository.save(targetUser);
 
