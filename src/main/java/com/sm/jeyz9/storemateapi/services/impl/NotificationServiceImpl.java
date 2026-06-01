@@ -11,7 +11,12 @@ import com.sm.jeyz9.storemateapi.repository.NotificationRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.NotificationService;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -23,12 +28,14 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final MessagingService messagingService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public NotificationServiceImpl(NotificationRepository notificationRepository, UserRepository userRepository, MessagingService messagingService) {
+    public NotificationServiceImpl(NotificationRepository notificationRepository, UserRepository userRepository, MessagingService messagingService, ModelMapper modelMapper) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.messagingService = messagingService;
+        this.modelMapper = modelMapper;
     }
     
     @Override
@@ -54,13 +61,22 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public List<NotifyOwnerResponseDTO> getAllNotify() {
-        return notificationRepository.getAllNotify();
+    public Page<NotifyOwnerResponseDTO> getAllNotify(String keyword, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+        return notificationRepository.findNotification(keyword, pageable).map(this::mapToNotifyOwner);
     }
 
     @Override
     public String removeNotify(Long notifyId) {
         notificationRepository.deleteById(notifyId);
         return "Remove notification successfully";
+    }
+    
+    private NotifyOwnerResponseDTO mapToNotifyOwner(Notification notification) {
+        return modelMapper.map(notification, NotifyOwnerResponseDTO.class);
     }
 }
