@@ -57,6 +57,6 @@ public class User {
     private LocalDateTime createdAt = LocalDateTime.now();
     
     private boolean isSuspended;
-    private String suspension_reason;
     private LocalDateTime suspendAt;
+    private LocalDateTime lastSeenAt;
 }

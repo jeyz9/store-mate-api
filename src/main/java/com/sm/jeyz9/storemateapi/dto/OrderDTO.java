@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -19,8 +19,8 @@ public class OrderDTO {
     private String orderNo;
     private String status;
     private String checkoutType;
-    private List<OrderAddressDTO> orderAddress;
-    private List<OrderItemDTO> orderItems;
+    private Set<OrderAddressDTO> orderAddress;
+    private Set<OrderItemDTO> orderItems;
     private Double total;
     private LocalDateTime createdAt;
 }

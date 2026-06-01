@@ -135,6 +135,16 @@ pipeline {
                 'N/A',
             )
         }
+        
+        aborted {
+            echo 'Build Aborted!'
+            sendNotificationToN8n(
+                'ABORTED',
+                env.STAGE_NAME ?: 'Unknown Stage',
+                'N/A',
+                'N/A',
+            )
+        }
     
         always {
             cleanWs()

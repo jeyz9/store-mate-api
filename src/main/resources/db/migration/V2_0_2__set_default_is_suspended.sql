@@ -1,0 +1,1 @@
+ALTER TABLE users ALTER COLUMN is_suspended SET DEFAULT FALSE;
