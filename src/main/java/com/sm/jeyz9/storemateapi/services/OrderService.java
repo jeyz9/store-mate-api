@@ -21,6 +21,6 @@ public interface OrderService {
     OrderModDetailsDTO getOrderDetailsByModerator(String orderNo);
     String changeOrderStatus(String orderNo, String status, String email);
     List<ShippingDTO> printShippingLabel(List<Long> ids);
-    RefundPaginationDTO getAllOrdersRefund(int page, int size);
+    RefundPaginationDTO getAllOrdersRefund(String keyword, String status, int page, int size);
     RefundDetailsDTO getOrderRefundDetails(String refundNo);
 }

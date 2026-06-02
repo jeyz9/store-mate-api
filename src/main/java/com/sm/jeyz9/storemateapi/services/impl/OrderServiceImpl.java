@@ -257,10 +257,10 @@ public class OrderServiceImpl implements OrderService {
     }
     
     @Override
-    public RefundPaginationDTO getAllOrdersRefund(int page, int size) {
+    public RefundPaginationDTO getAllOrdersRefund(String keyword, String status, int page, int size) {
         try {
             List<RefundRequest> refundRequests = refundRequestRepository.findAll();
-            List<RefundDTO> refunds = refundRequests.stream().map(r -> RefundDTO.builder()
+            List<RefundDTO> mapToDTO = refundRequests.stream().map(r -> RefundDTO.builder()
                     .refundNo(r.getRefundNo())
                     .receiverName(r.getUser().getName())
                     .orderNo(r.getOrder().getOrderNo())
@@ -269,7 +269,23 @@ public class OrderServiceImpl implements OrderService {
                     .requestedAt(r.getRequestedAt())
                     .status(r.getStatus().name())
                     .build()).toList();
+            
+            Stream<RefundDTO> stream = mapToDTO.stream();
+            
+            if(keyword != null && !keyword.trim().isBlank()){
+                stream = stream.filter(
+                        r -> r.getRefundNo().toLowerCase().contains(keyword.toLowerCase()) || r.getReceiverName().toLowerCase().contains(keyword.toLowerCase()) || r.getOrderNo().contains(keyword)
+                );
+            }
+            
+            if(status != null && !status.trim().isBlank() && !status.equals("ALL")) {
+                stream = stream.filter(
+                  r -> r.getStatus().equals(keyword)      
+                );
+            }
 
+            List<RefundDTO> refunds = stream.toList();
+            
             Pageable pageable = PageRequest.of(page, size);
             int start = (int) pageable.getOffset();
             int end = Math.min((start + pageable.getPageSize()), refunds.size());
@@ -286,7 +302,6 @@ public class OrderServiceImpl implements OrderService {
                     .total(total)
                     .build();
         }catch (Exception e) {
-            e.printStackTrace();
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
     }
