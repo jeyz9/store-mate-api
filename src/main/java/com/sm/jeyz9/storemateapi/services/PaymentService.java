@@ -300,7 +300,10 @@ public class PaymentService {
         refundRequest.setStatus(RefundStatusName.APPROVED);
         refundRequestRepository.save(refundRequest);
 
+        Order order = orderRepository.findById(refundRequest.getOrder().getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        
         if(refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+            order.setStatus(OrderStatusName.CANCELLED);
             return "Approve refund request success";
         }
         
@@ -317,6 +320,7 @@ public class PaymentService {
         }catch (StripeException e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
+        order.setStatus(OrderStatusName.REFUND);
         return "Approve refund request success";
     }
 
