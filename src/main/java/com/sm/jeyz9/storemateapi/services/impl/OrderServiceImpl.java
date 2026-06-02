@@ -274,7 +274,7 @@ public class OrderServiceImpl implements OrderService {
             
             if(keyword != null && !keyword.trim().isBlank()){
                 stream = stream.filter(
-                        r -> r.getRefundNo().toLowerCase().contains(keyword.toLowerCase()) || r.getReceiverName().toLowerCase().contains(keyword.toLowerCase()) || r.getOrderNo().contains(keyword)
+                        r -> r.getRefundNo().contains(keyword) || r.getReceiverName().toLowerCase().contains(keyword.toLowerCase()) || r.getOrderNo().contains(keyword)
                 );
             }
             
