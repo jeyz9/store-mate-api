@@ -291,39 +291,43 @@ public class PaymentService {
     
     @Transactional
     public String refundApprove(String refundNo) {
-        RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
-        
-        if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
-            throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
-        }
-        refundRequest.setApprovedAt(LocalDateTime.now());
-        refundRequest.setStatus(RefundStatusName.APPROVED);
-        refundRequestRepository.save(refundRequest);
+        try {
+            RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
 
-        Order order = orderRepository.findById(refundRequest.getOrder().getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-        
-        if(refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
-            order.setStatus(OrderStatusName.CANCELLED);
+            if (!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
+            }
+            refundRequest.setApprovedAt(LocalDateTime.now());
+            refundRequest.setStatus(RefundStatusName.APPROVED);
+            refundRequestRepository.save(refundRequest);
+
+            Order order = orderRepository.findById(refundRequest.getOrder().getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+
+            if (refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+                order.setStatus(OrderStatusName.CANCELLED);
+                orderRepository.save(order);
+                return "Approve refund request success";
+            }
+
+            long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
+
+            try {
+                Stripe.apiKey = secretKey;
+                RefundCreateParams params = RefundCreateParams.builder()
+                        .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
+                        .setAmount(amount)
+                        .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
+                        .build();
+                Refund.create(params);
+            } catch (StripeException e) {
+                throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+            }
+            order.setStatus(OrderStatusName.REFUNDED);
             orderRepository.save(order);
             return "Approve refund request success";
+        }catch(Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
-        
-        long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
-        
-        try {
-            Stripe.apiKey = secretKey;
-            RefundCreateParams params = RefundCreateParams.builder()
-                    .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
-                    .setAmount(amount)
-                    .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
-                    .build();
-            Refund.create(params);
-        }catch (StripeException e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
-        }
-        order.setStatus(OrderStatusName.REFUND);
-        orderRepository.save(order);
-        return "Approve refund request success";
     }
 
     public String refundReject(String refundNo) {
