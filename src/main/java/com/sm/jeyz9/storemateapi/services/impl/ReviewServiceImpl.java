@@ -1,12 +1,12 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ReviewerDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
-import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.Review;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
@@ -15,6 +15,9 @@ import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,28 +42,38 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public List<ReviewDTO> getReviewsByProductId(Long productId) {
-        try{
-        productRepository.findById(productId)
-                .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
+    public PaginationDTO<ReviewDTO> getReviewsByProductId(Long productId, int page, int size) {
+        try {
+            productRepository.findById(productId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
 
-        return reviewRepository.findAllByProductId(productId)
-                .stream()
-                .map(review -> ReviewDTO.builder()
-                        .id(review.getId())
-                        .reviewer(ReviewerDTO.builder()
-                                .id(review.getReviewer().getId())
-                                .name(review.getReviewer().getName())
-                                .build())
-                        .reviewScore(review.getReviewScore())
-                        .message(review.getMessage())
-                        .createdAt(review.getCreatedAt())
-                        .orderNo(review.getOrderItem().getOrder().getOrderNo())
-                        .build())
-                .toList();
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Review> reviews = reviewRepository.findAllByProductIdWithPage(productId, pageable);
+
+            List<ReviewDTO> data = reviews.getContent().stream()
+                    .map(review -> ReviewDTO.builder()
+                            .id(review.getId())
+                            .reviewer(ReviewerDTO.builder()
+                                    .id(review.getReviewer().getId())
+                                    .name(review.getReviewer().getName())
+                                    .build())
+                            .reviewScore(review.getReviewScore())
+                            .message(review.getMessage())
+                            .createdAt(review.getCreatedAt())
+                            .orderNo(review.getOrderItem().getOrder().getOrderNo())
+                            .build())
+                    .toList();
+
+            return new PaginationDTO<>(
+                    data,
+                    page,
+                    size,
+                    (int) reviews.getTotalElements()
+            );
+
         } catch (WebException e) {
             throw e;
-        }catch (Exception e) {
+        } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
         }
     }
