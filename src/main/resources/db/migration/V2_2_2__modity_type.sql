@@ -1,0 +1,1 @@
+ALTER TABLE refund_requests ALTER COLUMN refund_no TYPE VARCHAR(50);

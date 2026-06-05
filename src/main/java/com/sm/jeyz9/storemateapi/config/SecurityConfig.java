@@ -62,7 +62,8 @@ public class SecurityConfig {
                                         "/api/v1/products/search",
                                         "/api/v1/products/{id}",
                                         "/api/v1/users/me/address-dropdown",
-                                        
+                                        "/api/v1/reviews/{productId}",
+
                                         // TODO: for test
 //                                        "/app/**",
                                         "/api/v1/orders/test-ws"
@@ -72,6 +73,7 @@ public class SecurityConfig {
                                         "/api/v1/auth/register",
                                         "/api/v1/auth/forgot-password",
                                         "/api/v1/auth/reset-password",
+                                        "/api/v1/reviews/{orderItemId}",
                                         
                                         // TODO: for test
                                         "/api/v1/moderator/products",
@@ -85,7 +87,7 @@ public class SecurityConfig {
                                         "/api/v1/users/me/overview",
                                         "/api/v1/users/me/addresses",
                                         "/api/v1/users/me/addresses/default",
-                                        "/api/v1/owner/store")
+                                        "/api/v1/owner/users")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.POST,
@@ -97,7 +99,10 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.PUT,
                                         "/api/v1/users/me/overview",
                                         "/api/v1/users/me/addresses/{id}",
-                                        "/api/v1/owner/store/{storeId}")
+                                        "/api/v1/reviews/{reviewId}",
+                                        "/api/v1/owner/users/{userId}/roles",
+                                        "/api/v1/owner/users/{userId}/suspend",
+                                        "/api/v1/owner/users/{userId}/activate")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 
@@ -109,7 +114,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.DELETE, 
                                         "/api/v1/cart/items/{productId}",
                                         "/api/v1/users/me/addresses/{id}",
-                                        "/api/v1/users/me//profile-image"
+                                        "/api/v1/users/me//profile-image",
+                                        "/api/v1/reviews/{reviewId}"
                                 ).authenticated()
                                 
                                 .anyRequest().authenticated()

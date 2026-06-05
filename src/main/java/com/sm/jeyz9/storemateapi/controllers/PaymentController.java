@@ -38,11 +38,6 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    @PostMapping("/orders/test/payments")
-    public ResponseEntity<String> checkout() throws StripeException {
-        return new ResponseEntity<>(paymentService.checkout(), HttpStatus.OK);
-    }
-    
     @PostMapping("/orders/payments/intent")
     public ResponseEntity<Map<String, String>> checkoutIntent(@RequestBody CheckoutRequestDTO request, Principal principal) {
         return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request), HttpStatus.OK);
@@ -53,24 +48,19 @@ public class PaymentController {
         return new ResponseEntity<>(paymentService.checkoutNow(principal.getName(), request), HttpStatus.OK);
     }
     
-    @PostMapping("/orders/test/refund")
-    public ResponseEntity<Map<String, String>> refund(@RequestParam("orderNo") String orderNo, Principal principal) {
-        return ResponseEntity.ok(paymentService.refund(orderNo, principal.getName()));
-    }
-    
     @PostMapping("/payment/refund-request/send")
     public ResponseEntity<String> sendRefund(@RequestBody @Valid RefundRequestDTO request, Principal principal) {
         return new ResponseEntity<>(paymentService.sendRefundRequest(request, principal.getName()), HttpStatus.CREATED);
     }
     
-    @GetMapping("/payment/refund-request/{id}/approve")
-    public ResponseEntity<String> refundApprove(@PathVariable("id") Long id) {
-        return new ResponseEntity<>(paymentService.refundApprove(id), HttpStatus.OK);
+    @GetMapping("/payment/refund-request/{refundNo}/approve")
+    public ResponseEntity<String> refundApprove(@PathVariable("refundNo") String refundNo) {
+        return new ResponseEntity<>(paymentService.refundApprove(refundNo), HttpStatus.OK);
     }
 
-    @GetMapping("/payment/refund-request/{id}/reject")
-    public ResponseEntity<String> refundReject(@PathVariable("id") Long id){
-        return new ResponseEntity<>(paymentService.refundReject(id), HttpStatus.OK);
+    @GetMapping("/payment/refund-request/{refundNo}/reject")
+    public ResponseEntity<String> refundReject(@PathVariable("refundNo") String refundNo){
+        return new ResponseEntity<>(paymentService.refundReject(refundNo), HttpStatus.OK);
     }
     
     @PostMapping("/stripe/webhook")

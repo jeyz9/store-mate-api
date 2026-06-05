@@ -21,4 +21,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         WHERE product_id = :productId;
     """, nativeQuery = true)
     Float findRatingByProductId(@Param("productId") Long productId);
+
+    @Query(value = """
+        SELECT EXISTS (
+            SELECT 1 FROM reviews WHERE order_item_id = :orderItemId
+        )
+    """, nativeQuery = true)
+    boolean existsByOrderItemId(@Param("orderItemId") Long orderItemId);
 }

@@ -154,5 +154,26 @@ public class SupabaseService {
         }
     }
 
+    @Transactional
+    public void deleteProductImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+
+        try {
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + supabaseBucket + "/" + fileName;
+
+            restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
+        } catch (Exception e) {
+            System.err.println("ไม่สามารถลบไฟล์จาก Storage ได้: " + e.getMessage());
+        }
+    }
+
     
 }
