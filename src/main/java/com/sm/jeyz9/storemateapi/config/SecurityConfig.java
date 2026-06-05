@@ -63,6 +63,7 @@ public class SecurityConfig {
                                         "/api/v1/products/{id}",
                                         "/api/v1/users/me/address-dropdown",
                                         "/api/v1/reviews/{productId}",
+                                        "/api/v1/owner/store",
 
                                         // TODO: for test
 //                                        "/app/**",
@@ -102,7 +103,8 @@ public class SecurityConfig {
                                         "/api/v1/reviews/{reviewId}",
                                         "/api/v1/owner/users/{userId}/roles",
                                         "/api/v1/owner/users/{userId}/suspend",
-                                        "/api/v1/owner/users/{userId}/activate")
+                                        "/api/v1/owner/users/{userId}/activate",
+                                        "/api/v1/owner/store/{storeId}")
                                 .authenticated()
                                 
                                 .requestMatchers(HttpMethod.PATCH, 

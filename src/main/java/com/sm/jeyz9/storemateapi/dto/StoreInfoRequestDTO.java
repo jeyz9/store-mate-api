@@ -19,11 +19,10 @@ public class StoreInfoRequestDTO {
 
     private String storeName;
 
-    private LocalTime openTime;
-    private LocalTime closeTime;
     private String phone;
     private String streetAddress;
 
     @Email(message = "Invalid email format")
     private String email;
+    private String promotionImage;
 }

@@ -18,9 +18,8 @@ import java.time.LocalTime;
 public class StoreInfoDTO {
     private Long id;
     private String storeName;
-    private LocalTime openTime;
-    private LocalTime closeTime;
     private String phone;
     private String streetAddress;
     private String email;
+    private String promotionImage;
 }

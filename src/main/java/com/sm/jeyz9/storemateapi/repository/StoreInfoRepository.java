@@ -9,6 +9,4 @@ import java.util.Optional;
 
 @Repository
 public interface StoreInfoRepository extends JpaRepository<StoreInfo, Long> {
-    Optional<StoreInfo> findByOwner(User owner);
-    Optional<StoreInfo> findByIdAndOwner(Long id, User owner);
 }
