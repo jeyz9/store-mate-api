@@ -56,6 +56,10 @@ public class ThaibluksmsService {
     public String sendEmailResetPassword(String email) {
         try{
             User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+
+            if(user.isSuspended()) {
+                throw new WebException(HttpStatus.FORBIDDEN, "Account has been suspended");
+            }
             
             String token = UUID.randomUUID().toString();
             PasswordResetToken reset = PasswordResetToken.builder()
