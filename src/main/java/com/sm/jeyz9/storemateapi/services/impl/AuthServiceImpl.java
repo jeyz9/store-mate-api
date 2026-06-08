@@ -84,6 +84,10 @@ public class AuthServiceImpl implements AuthService {
         if(!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new WebException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
+        
+        if(user.isSuspended()) {
+            throw new WebException(HttpStatus.FORBIDDEN, "Account has been suspended");
+        }
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
