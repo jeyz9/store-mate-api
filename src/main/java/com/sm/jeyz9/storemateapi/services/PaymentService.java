@@ -3,6 +3,8 @@ package com.sm.jeyz9.storemateapi.services;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.CheckoutTypeName;
@@ -328,6 +330,40 @@ public class PaymentService {
         }catch(Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
+    }
+
+    public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) throws Exception {
+
+        Order order = orderRepository.findOneByOrderNo(request.getOrderNo()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        PaymentIntent paymentIntent =
+                PaymentIntent.retrieve(order.getStripePaymentIntent());
+
+        if ("requires_payment_method".equals(paymentIntent.getStatus())
+                || "requires_confirmation".equals(paymentIntent.getStatus())
+                || "requires_action".equals(paymentIntent.getStatus())) {
+
+            return RetryPaymentResponseDTO.builder()
+                    .clientSecret(paymentIntent.getClientSecret())
+                    .paymentIntentId(paymentIntent.getId())
+                    .build();
+        }
+
+        PaymentIntentCreateParams params =
+                PaymentIntentCreateParams.builder()
+                        .setAmount(paymentIntent.getAmount())
+                        .setCurrency(paymentIntent.getCurrency())
+                        .build();
+
+        PaymentIntent newPaymentIntent = PaymentIntent.create(params);
+        
+        order.setStripePaymentIntent(newPaymentIntent.getId());
+        order.setClientSecret(newPaymentIntent.getClientSecret());
+        orderRepository.save(order);
+
+        return RetryPaymentResponseDTO.builder()
+                .clientSecret(newPaymentIntent.getClientSecret())
+                .paymentIntentId(newPaymentIntent.getId())
+                .build();
     }
 
     public String refundReject(String refundNo) {
