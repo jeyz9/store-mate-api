@@ -3,8 +3,9 @@ package com.sm.jeyz9.storemateapi.controllers;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.services.PaymentService;
-import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
@@ -81,5 +81,11 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Invalid signature");
         }
         return new ResponseEntity<>("received", HttpStatus.OK);
+    }
+
+    @PostMapping("/retry")
+    public ResponseEntity<RetryPaymentResponseDTO> retryPayment(
+            @RequestBody RetryPaymentRequestDTO request) throws Exception {
+        return ResponseEntity.ok(paymentService.retryPayment(request));
     }
 }

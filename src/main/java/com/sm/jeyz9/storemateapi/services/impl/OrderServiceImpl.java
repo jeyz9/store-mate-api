@@ -29,6 +29,7 @@ import com.sm.jeyz9.storemateapi.models.Zipcode;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
 import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
+import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.OrderService;
@@ -60,15 +61,17 @@ public class OrderServiceImpl implements OrderService {
     private final ModelMapper modelMapper;
     private final StoreInfoRepository storeInfoRepository;
     private final RefundRequestRepository refundRequestRepository;
+    private final ReviewRepository reviewRepository;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository, ReviewRepository reviewRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
         this.modelMapper = modelMapper;
         this.storeInfoRepository = storeInfoRepository;
         this.refundRequestRepository = refundRequestRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     @Override
@@ -367,6 +370,7 @@ public class OrderServiceImpl implements OrderService {
                                 .price(product.getPrice())
                                 .quantity(item.getQuantity())
                                 .subTotal(product.getPrice() * item.getQuantity())
+                                .review(reviewRepository.existsByOrderItemId(o.getId()))
                                 .build();
                     }).collect(Collectors.toSet());
                     
@@ -381,10 +385,6 @@ public class OrderServiceImpl implements OrderService {
                                     .build()
                     ).collect(Collectors.toSet());
                     
-                    double total = o.getOrderItems().stream().mapToDouble(
-                            i -> i.getProduct().getPrice() * i.getQuantity()
-                    ).sum();
-                    
                     return OrderDTO.builder()
                             .id(o.getId())
                             .orderNo(o.getOrderNo())
@@ -392,7 +392,7 @@ public class OrderServiceImpl implements OrderService {
                             .orderAddress(orderAddress)
                             .status(o.getStatus().toString())
                             .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
-                            .total(total)
+                            .total(o.getTotalPrice())
                             .createdAt(o.getCreatedAt())
                             .build();
                 }

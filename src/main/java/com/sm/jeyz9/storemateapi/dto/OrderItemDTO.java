@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,4 +19,7 @@ public class OrderItemDTO {
     private Double price;
     private Integer quantity;
     private Double subTotal;
+    
+    @JsonProperty("is_review")
+    private boolean review;
 }
