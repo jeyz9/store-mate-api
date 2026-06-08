@@ -370,7 +370,7 @@ public class OrderServiceImpl implements OrderService {
                                 .price(product.getPrice())
                                 .quantity(item.getQuantity())
                                 .subTotal(product.getPrice() * item.getQuantity())
-                                .review(reviewRepository.existsByOrderItemId(o.getId()))
+                                .review(reviewRepository.existsByOrderItemId(item.getId()))
                                 .build();
                     }).collect(Collectors.toSet());
                     
