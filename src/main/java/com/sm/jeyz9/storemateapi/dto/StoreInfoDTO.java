@@ -20,6 +20,10 @@ public class StoreInfoDTO {
     private String storeName;
     private String phone;
     private String streetAddress;
+    private String subdistrict;
+    private String district;
+    private String province;
+    private String zipcode;
     private String email;
     private String promotionImage;
 }
