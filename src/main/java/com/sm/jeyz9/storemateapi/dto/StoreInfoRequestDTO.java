@@ -21,8 +21,11 @@ public class StoreInfoRequestDTO {
 
     private String phone;
     private String streetAddress;
+    private Long zipcodeId;
 
     @Email(message = "Invalid email format")
     private String email;
     private String promotionImage;
+
+
 }
