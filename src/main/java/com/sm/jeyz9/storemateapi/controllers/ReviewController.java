@@ -24,7 +24,7 @@ public class ReviewController {
         this.reviewService = reviewService;
     }
 
-    @Operation(summary = "ดึง review ของ product ใน order")
+    @Operation(summary = "ดึง review จาก orderItemId")
     @GetMapping("/reviews/order-item/{orderItemId}")
     public ResponseEntity<ReviewDTO> getReviewByProductAndOrder(
             @PathVariable Long orderItemId,
