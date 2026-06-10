@@ -6,11 +6,12 @@ import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.RoleName;
 import com.sm.jeyz9.storemateapi.models.StoreInfo;
 import com.sm.jeyz9.storemateapi.models.User;
+import com.sm.jeyz9.storemateapi.models.Zipcode;
 import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.StoreInfoService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
-import org.modelmapper.ModelMapper;
+import com.sm.jeyz9.storemateapi.repository.ZipcodeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,18 +23,18 @@ public class StoreInfoServiceImpl implements StoreInfoService {
 
     private final StoreInfoRepository storeInfoRepository;
     private final UserRepository userRepository;
-    private final ModelMapper modelMapper;
     private final SupabaseService supabaseService;
+    private final ZipcodeRepository zipcodeRepository;
 
     @Autowired
     public StoreInfoServiceImpl(StoreInfoRepository storeInfoRepository,
                                 UserRepository userRepository,
-                                ModelMapper modelMapper,
-                                SupabaseService supabaseService) {
+                                SupabaseService supabaseService,
+                                ZipcodeRepository zipcodeRepository) {
         this.storeInfoRepository = storeInfoRepository;
         this.userRepository = userRepository;
-        this.modelMapper = modelMapper;
         this.supabaseService = supabaseService;
+        this.zipcodeRepository = zipcodeRepository;
     }
 
     private void validateAdmin(User user) {
@@ -42,6 +43,27 @@ public class StoreInfoServiceImpl implements StoreInfoService {
         if (!isAdmin) {
             throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้");
         }
+    }
+
+    private StoreInfoDTO mapToStoreInfoDTO(StoreInfo storeInfo) {
+        StoreInfoDTO dto = StoreInfoDTO.builder()
+                .id(storeInfo.getId())
+                .storeName(storeInfo.getStoreName())
+                .phone(storeInfo.getPhone())
+                .streetAddress(storeInfo.getStreetAddress())
+                .email(storeInfo.getEmail())
+                .promotionImage(storeInfo.getPromotionImage())
+                .build();
+
+        if (storeInfo.getZipcode() != null) {
+            Zipcode zipcode = storeInfo.getZipcode();
+            dto.setZipcode(zipcode.getZipcode());
+            if (zipcode.getSubdistrict() != null) dto.setSubdistrict(zipcode.getSubdistrict().getName());
+            if (zipcode.getDistrict() != null) dto.setDistrict(zipcode.getDistrict().getName());
+            if (zipcode.getProvince() != null) dto.setProvince(zipcode.getProvince().getName());
+        }
+
+        return dto;
     }
 
     @Override
@@ -53,7 +75,9 @@ public class StoreInfoServiceImpl implements StoreInfoService {
                     .findFirst()
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบข้อมูลร้านค้า"));
 
-            return modelMapper.map(storeInfo, StoreInfoDTO.class);
+
+
+            return mapToStoreInfoDTO(storeInfo);
 
         } catch (WebException e) {
             throw e;
@@ -83,6 +107,12 @@ public class StoreInfoServiceImpl implements StoreInfoService {
             if (request.getStreetAddress() != null) {
                 storeInfo.setStreetAddress(request.getStreetAddress());
             }
+            if (request.getZipcodeId() != null) {
+                Zipcode zipcode = zipcodeRepository.findById(request.getZipcodeId())
+                        .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบรหัสไปรษณีย์"));
+                storeInfo.setZipcode(zipcode);
+            }
+
             if (request.getEmail() != null) {
                 storeInfo.setEmail(request.getEmail());
             }
@@ -97,7 +127,7 @@ public class StoreInfoServiceImpl implements StoreInfoService {
             }
 
             StoreInfo saved = storeInfoRepository.save(storeInfo);
-            return modelMapper.map(saved, StoreInfoDTO.class);
+            return mapToStoreInfoDTO(saved);
 
         } catch (WebException e) {
             throw e;

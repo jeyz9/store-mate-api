@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
@@ -32,11 +33,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     boolean existsByOrderItemId(@Param("orderItemId") Long orderItemId);
 
     @Query(value = """
-    SELECT * FROM reviews WHERE product_id = :productId
-    """,
-            countQuery = """
-    SELECT COUNT(*) FROM reviews WHERE product_id = :productId
-    """,
-            nativeQuery = true)
-    Page<Review> findAllByProductIdWithPage(@Param("productId") Long productId, Pageable pageable);
+    SELECT * FROM reviews WHERE order_item_id = :orderItemId
+    LIMIT 1
+    """, nativeQuery = true)
+    Optional<Review> findByOrderItemId(@Param("orderItemId") Long orderItemId);
 }

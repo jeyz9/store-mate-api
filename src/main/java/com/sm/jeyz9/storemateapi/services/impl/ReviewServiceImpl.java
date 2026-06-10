@@ -31,45 +31,38 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
-    private final ProductRepository productRepository;
 
     @Autowired
-    public ReviewServiceImpl(ReviewRepository reviewRepository, OrderItemRepository orderItemRepository, UserRepository userRepository,ProductRepository productRepository) {
+    public ReviewServiceImpl(ReviewRepository reviewRepository, OrderItemRepository orderItemRepository, UserRepository userRepository) {
         this.reviewRepository = reviewRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
-        this.productRepository = productRepository;
     }
 
     @Override
-    public PaginationDTO<ReviewDTO> getReviewsByProductId(Long productId, int page, int size) {
+    public ReviewDTO getReviewByProductAndOrder(Long orderItemId, String userEmail) {
         try {
-            productRepository.findById(productId)
-                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
+            User user = userRepository.findUserByEmail(userEmail)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
 
-            Pageable pageable = PageRequest.of(page, size);
-            Page<Review> reviews = reviewRepository.findAllByProductIdWithPage(productId, pageable);
+            Review review = reviewRepository.findByOrderItemId(orderItemId)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Review not found."));
 
-            List<ReviewDTO> data = reviews.getContent().stream()
-                    .map(review -> ReviewDTO.builder()
-                            .id(review.getId())
-                            .reviewer(ReviewerDTO.builder()
-                                    .id(review.getReviewer().getId())
-                                    .name(review.getReviewer().getName())
-                                    .build())
-                            .reviewScore(review.getReviewScore())
-                            .message(review.getMessage())
-                            .createdAt(review.getCreatedAt())
-                            .orderNo(review.getOrderItem().getOrder().getOrderNo())
+            if (!review.getReviewer().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "You do not have permission to view this review.");
+            }
+
+            return ReviewDTO.builder()
+                    .id(review.getId())
+                    .reviewer(ReviewerDTO.builder()
+                            .id(review.getReviewer().getId())
+                            .name(review.getReviewer().getName())
                             .build())
-                    .toList();
-
-            return new PaginationDTO<>(
-                    data,
-                    page,
-                    size,
-                    (int) reviews.getTotalElements()
-            );
+                    .reviewScore(review.getReviewScore())
+                    .message(review.getMessage())
+                    .createdAt(review.getCreatedAt())
+                    .orderNo(review.getOrderItem().getOrder().getOrderNo())
+                    .build();
 
         } catch (WebException e) {
             throw e;

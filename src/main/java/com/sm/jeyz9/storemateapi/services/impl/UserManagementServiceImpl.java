@@ -69,7 +69,7 @@ public class UserManagementServiceImpl implements UserManagementService {
             validateAdmin(currentUser);
 
             Pageable pageable = PageRequest.of(page, size);
-            Page<User> users = userRepository.findAll(pageable);
+            Page<User> users = userRepository.findAllSortedByRole(pageable);
 
             List<UserManagementDTO> data = users.getContent().stream()
                     .map(this::mapToDTO)
