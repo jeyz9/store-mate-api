@@ -268,8 +268,14 @@ public class PaymentService {
     public String sendRefundRequest(RefundRequestDTO request, String email) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
         Order order = orderRepository.findOrderByOrderNoAndUserId(request.getOrderNo(), user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
-        if(!order.getStatus().equals(OrderStatusName.PROCESSING)) {
+        if(!order.getStatus().equals(OrderStatusName.PROCESSING) && !order.getStatus().equals(OrderStatusName.PENDING)) {
             throw new WebException(HttpStatus.BAD_REQUEST, "Can't refund this order");
+        }
+        
+        if(order.getStatus().equals(OrderStatusName.PENDING)) {
+            order.setStatus(OrderStatusName.CANCELLED);
+            orderRepository.save(order);
+            return "Cancel order success";
         }
         
         boolean existRefund = refundRequestRepository.existsByStatusAndOrderId(RefundStatusName.PENDING.name(), order.getId());
