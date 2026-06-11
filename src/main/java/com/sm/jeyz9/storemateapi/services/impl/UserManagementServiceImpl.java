@@ -61,7 +61,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public PaginationDTO<UserManagementDTO> getAllUsers(int page, int size, String email) {
+    public PaginationDTO<UserManagementDTO> getAllUsers(int page, int size, String email, String search, RoleName roleName, Boolean suspended) {
         try {
             User currentUser = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานในระบบ"));
@@ -69,7 +69,12 @@ public class UserManagementServiceImpl implements UserManagementService {
             validateAdmin(currentUser);
 
             Pageable pageable = PageRequest.of(page, size);
-            Page<User> users = userRepository.findAllSortedByRole(pageable);
+            Page<User> users = userRepository.findAllWithFilters(
+                    search,
+                    roleName,
+                    suspended,
+                    pageable
+            );
 
             List<UserManagementDTO> data = users.getContent().stream()
                     .map(this::mapToDTO)
