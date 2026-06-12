@@ -4,6 +4,7 @@ import com.sm.jeyz9.storemateapi.dto.OwnerDashboardDTO;
 import com.sm.jeyz9.storemateapi.dto.SalesAnalyticsDashboardDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingImportDTO;
 import com.sm.jeyz9.storemateapi.services.OwnerDashboardService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,9 +32,17 @@ public class OwnerDashboardController {
         return new ResponseEntity<>(ownerDashboardService.getAdminDashboard(), HttpStatus.OK);
     }
     
+    @Operation(
+            description = """
+             Period
+                TODAY: วันนี้
+                WEEK: สัปดาห์นี้
+                MONTH: เดือนนี้
+            """
+    )
     @GetMapping("/sales-analytics/dashboard")
-    public ResponseEntity<SalesAnalyticsDashboardDTO> salesAnalyticsDashboard() {
-        return new ResponseEntity<>(ownerDashboardService.salesAnalyticsDashboard(), HttpStatus.OK);
+    public ResponseEntity<SalesAnalyticsDashboardDTO> salesAnalyticsDashboard(@RequestParam(required = false, defaultValue = "MONTH") String period) {
+        return new ResponseEntity<>(ownerDashboardService.salesAnalyticsDashboard(period), HttpStatus.OK);
     }
 
     @PostMapping("/import")

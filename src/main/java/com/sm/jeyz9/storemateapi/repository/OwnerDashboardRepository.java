@@ -241,155 +241,173 @@ public class OwnerDashboardRepository {
     
     public Optional<SalesAnalyticsDashboardDTO> findSalesAnalyticsDashboard(String period) {
         String sql = """
-                SELECT
-                    COALESCE(SUM(o.total_price), 0) AS "totalPrice",
-                    COALESCE(COUNT(DISTINCT o.id), 0) AS "totalOrder",
-                    (
-                        SELECT COALESCE(json_agg(t), '[]')
-                        FROM (
-                             SELECT
-                                 o2.order_channel AS "orderChannel",
-                                 ROUND(COUNT(o2.id) * 100.0 / (SELECT COUNT(*) FROM orders WHERE status NOT IN ('PENDING', 'CANCELLED', 'REFUND')), 2) AS "percentage"
-                             FROM orders o2
-                             WHERE o2.status NOT IN ('PENDING', 'CANCELLED', 'REFUND')
-                             GROUP BY o2.order_channel
-                        ) t
-                    ) AS orderChannelIncome,
-                    (
-                        SELECT COALESCE(json_agg(t), '[]')
-                        FROM (
-                                 SELECT
-                                     CASE WHEN p.name IN (
-                                              'กรุงเทพมหานคร',
-                                              'นนทบุรี',
-                                              'ปทุมธานี',
-                                              'สมุทรปราการ',
-                                              'นครปฐม',
-                                              'สมุทรสาคร'
-                                         )
-                                              THEN 'กรุงเทพและปริมณฑล'
-                                          ELSE g.name
-                                         END AS geography,
-                                     COUNT(DISTINCT o.id) AS "totalOrder",
-                                     COALESCE(SUM(o.total_price), 0) AS "totalRevenue",
-                                     COUNT(DISTINCT o.user_id) AS "totalUser"
-                                 FROM orders o
-                                          LEFT JOIN order_address oa ON o.id = oa.order_id
-                                          LEFT JOIN order_items oi ON oi.order_id = o.id
-                                          LEFT JOIN products pd ON pd.id = oi.product_id
-                                          LEFT JOIN zipcode z ON z.id = oa.zipcode_id
-                                          LEFT JOIN provinces p ON p.id = z.province_id
-                                          LEFT JOIN geography g ON g.id = p.geo_id
-                                 WHERE o.status NOT IN ('PENDING', 'CANCELLED', 'REFUND')
-                                 GROUP BY
-                                     CASE
-                                         WHEN p.name IN (
-                                                         'กรุงเทพมหานคร',
-                                                         'นนทบุรี',
-                                                         'ปทุมธานี',
-                                                         'สมุทรปราการ',
-                                                         'นครปฐม',
-                                                         'สมุทรสาคร'
-                                             )
-                                             THEN 'กรุงเทพและปริมณฑล'
-                                         ELSE g.name
-                                     END
-                        ) t
-                    ) AS "regionalOrders",
-                    (
-                        SELECT COALESCE(json_agg(t), '[]')
-                        FROM (
-                                 SELECT
-                                     CASE WHEN p.name IN (
-                                                          'กรุงเทพมหานคร',
-                                                          'นนทบุรี',
-                                                          'ปทุมธานี',
-                                                          'สมุทรปราการ',
-                                                          'นครปฐม',
-                                                          'สมุทรสาคร'
-                                         )
-                                              THEN 'กรุงเทพและปริมณฑล'
-                                          ELSE g.name
-                                         END AS geography,
-                                     ROUND(
-                                             (
-                                                 COALESCE(SUM(o.total_price), 0) * 100.0 /
-                                                 (
-                                                     SELECT COALESCE(SUM(o2.total_price), 0)
-                                                     FROM orders o2
-                                                     WHERE o2.status NOT IN ('PENDING', 'CANCELLED', 'REFUND')
-                                                 )
-                                                 )::numeric, 2
-                                     ) AS "totalRevenuePercent"
-                                 FROM orders o
-                                          LEFT JOIN order_address oa ON o.id = oa.order_id
-                                          LEFT JOIN order_items oi ON oi.order_id = o.id
-                                          LEFT JOIN products pd ON pd.id = oi.product_id
-                                          LEFT JOIN zipcode z ON z.id = oa.zipcode_id
-                                          LEFT JOIN provinces p ON p.id = z.province_id
-                                          LEFT JOIN geography g ON g.id = p.geo_id
-                                 WHERE o.status NOT IN ('PENDING', 'CANCELLED', 'REFUND')
-                                 GROUP BY
-                                     CASE
-                                         WHEN p.name IN (
-                                                         'กรุงเทพมหานคร',
-                                                         'นนทบุรี',
-                                                         'ปทุมธานี',
-                                                         'สมุทรปราการ',
-                                                         'นครปฐม',
-                                                         'สมุทรสาคร'
-                                             )
-                                             THEN 'กรุงเทพและปริมณฑล'
-                                         ELSE g.name
-                                         END
-                             ) t
-                    ) AS "regionalRevenue",
-                
-                    (
-                     SELECT COALESCE(json_agg(t), '[]')
-                     FROM (
-                          SELECT
-                              CASE WHEN p.name IN (
-                                                   'กรุงเทพมหานคร',
-                                                   'นนทบุรี',
-                                                   'ปทุมธานี',
-                                                   'สมุทรปราการ',
-                                                   'นครปฐม',
-                                                   'สมุทรสาคร'
-                                  )
-                                       THEN 'กรุงเทพและปริมณฑล'
-                                   ELSE g.name
-                                  END AS geography,
-                              ROUND(
-                                      COUNT(DISTINCT u.id) * 100.0 / (
-                                          SELECT COUNT(*) FROM users u2
-                                                                   LEFT JOIN user_address ua2 ON ua2.user_id = u2.id
-                                          WHERE ua2.is_default = TRUE
-                                      ),2
-                              ) AS "totalUserPercent"
-                          FROM users u
-                                   LEFT JOIN user_address ua ON ua.user_id = u.id
-                                   LEFT JOIN zipcode z ON z.id = ua.zipcode_id
-                                   LEFT JOIN provinces p ON p.id = z.province_id
-                                   LEFT JOIN geography g ON g.id = p.geo_id
-                          WHERE ua.is_default = TRUE
-                          GROUP BY
-                              CASE
-                                  WHEN p.name IN (
-                                                  'กรุงเทพมหานคร',
-                                                  'นนทบุรี',
-                                                  'ปทุมธานี',
-                                                  'สมุทรปราการ',
-                                                  'นครปฐม',
-                                                  'สมุทรสาคร'
-                                      )
-                                      THEN 'กรุงเทพและปริมณฑล'
-                                  ELSE g.name
-                                  END
-                     ) t
-                    ) AS "regionalUsers"
-                FROM orders o
-                WHERE o.status NOT IN ('PENDING', 'CANCELLED', 'REFUND');        
+                WITH date_filter AS (
+                      SELECT CASE ?
+                          WHEN 'TODAY' THEN DATE_TRUNC('day', CURRENT_TIMESTAMP)
+                          WHEN 'WEEK' THEN DATE_TRUNC('week', CURRENT_TIMESTAMP)
+                          WHEN 'MONTH' THEN DATE_TRUNC('month', CURRENT_TIMESTAMP)
+                      ELSE DATE_TRUNC('month', CURRENT_TIMESTAMP)
+                      END AS start_date,
+                      CURRENT_TIMESTAMP AS end_date
+                  )
+                  SELECT
+                      COALESCE(SUM(o.total_price), 0) AS "totalPrice",
+                      COALESCE(COUNT(DISTINCT o.id), 0) AS "totalOrder",
+                      (
+                          SELECT COALESCE(json_agg(t), '[]')
+                          FROM (
+                                   SELECT
+                                       o2.order_channel AS "orderChannel",
+                                       ROUND(COUNT(o2.id) * 100.0 / NULLIF((SELECT COUNT(*) FROM orders WHERE status NOT IN ('PENDING', 'CANCELLED', 'REFUND')), 0), 2) AS "percentage"
+                                   FROM orders o2
+                                   WHERE o2.status IN ('COMPLETED')
+                                      AND o2.created_at >= (SELECT start_date FROM date_filter)
+                                      AND o2.created_at <= (SELECT end_date FROM date_filter)
+                                   GROUP BY o2.order_channel
+                               ) t
+                      ) AS orderChannelIncome,
+                      (
+                          SELECT COALESCE(json_agg(t), '[]')
+                          FROM (
+                                   SELECT
+                                       CASE WHEN p.name IN (
+                                                            'กรุงเทพมหานคร',
+                                                            'นนทบุรี',
+                                                            'ปทุมธานี',
+                                                            'สมุทรปราการ',
+                                                            'นครปฐม',
+                                                            'สมุทรสาคร'
+                                           )
+                                                THEN 'กรุงเทพและปริมณฑล'
+                                            ELSE g.name
+                                           END AS geography,
+                                       COUNT(DISTINCT o.id) AS "totalOrder",
+                                       COALESCE(SUM(o.total_price), 0) AS "totalRevenue",
+                                       COUNT(DISTINCT o.user_id) AS "totalUser"
+                                   FROM orders o
+                                            LEFT JOIN order_address oa ON o.id = oa.order_id
+                                            LEFT JOIN order_items oi ON oi.order_id = o.id
+                                            LEFT JOIN products pd ON pd.id = oi.product_id
+                                            LEFT JOIN zipcode z ON z.id = oa.zipcode_id
+                                            LEFT JOIN provinces p ON p.id = z.province_id
+                                            LEFT JOIN geography g ON g.id = p.geo_id
+                                   WHERE o.status IN ('COMPLETED')
+                                     AND o.created_at >= (SELECT start_date FROM date_filter)
+                                     AND o.created_at <= (SELECT end_date FROM date_filter)
+                                   GROUP BY
+                                       CASE
+                                           WHEN p.name IN (
+                                                           'กรุงเทพมหานคร',
+                                                           'นนทบุรี',
+                                                           'ปทุมธานี',
+                                                           'สมุทรปราการ',
+                                                           'นครปฐม',
+                                                           'สมุทรสาคร'
+                                               )
+                                               THEN 'กรุงเทพและปริมณฑล'
+                                           ELSE g.name
+                                           END
+                               ) t
+                      ) AS "regionalOrders",
+                      (
+                          SELECT COALESCE(json_agg(t), '[]')
+                          FROM (
+                                   SELECT
+                                       CASE WHEN p.name IN (
+                                                            'กรุงเทพมหานคร',
+                                                            'นนทบุรี',
+                                                            'ปทุมธานี',
+                                                            'สมุทรปราการ',
+                                                            'นครปฐม',
+                                                            'สมุทรสาคร'
+                                           )
+                                                THEN 'กรุงเทพและปริมณฑล'
+                                            ELSE g.name
+                                           END AS geography,
+                                       ROUND(
+                                               (
+                                                   COALESCE(SUM(o.total_price), 0) * 100.0 /
+                                                   NULLIF((
+                                                       SELECT COALESCE(SUM(o2.total_price), 0)
+                                                       FROM orders o2
+                                                       WHERE o2.status IN ('COMPLETED')
+                                                        AND o2.created_at >= (SELECT start_date FROM date_filter)
+                                                        AND o2.created_at <= (SELECT end_date FROM date_filter)
+                                                   ), 0))::numeric, 2
+                                       ) AS "totalRevenuePercent"
+                                   FROM orders o
+                                            LEFT JOIN order_address oa ON o.id = oa.order_id
+                                            LEFT JOIN order_items oi ON oi.order_id = o.id
+                                            LEFT JOIN products pd ON pd.id = oi.product_id
+                                            LEFT JOIN zipcode z ON z.id = oa.zipcode_id
+                                            LEFT JOIN provinces p ON p.id = z.province_id
+                                            LEFT JOIN geography g ON g.id = p.geo_id
+                                   WHERE o.status IN ('COMPLETED')
+                                     AND o.created_at >= (SELECT start_date FROM date_filter)
+                                     AND o.created_at <= (SELECT end_date FROM date_filter)
+                                   GROUP BY
+                                       CASE
+                                           WHEN p.name IN (
+                                                           'กรุงเทพมหานคร',
+                                                           'นนทบุรี',
+                                                           'ปทุมธานี',
+                                                           'สมุทรปราการ',
+                                                           'นครปฐม',
+                                                           'สมุทรสาคร'
+                                               )
+                                               THEN 'กรุงเทพและปริมณฑล'
+                                           ELSE g.name
+                                           END
+                               ) t
+                      ) AS "regionalRevenue",
+                  
+                      (
+                          SELECT COALESCE(json_agg(t), '[]')
+                          FROM (
+                                   SELECT
+                                       CASE WHEN p.name IN (
+                                                            'กรุงเทพมหานคร',
+                                                            'นนทบุรี',
+                                                            'ปทุมธานี',
+                                                            'สมุทรปราการ',
+                                                            'นครปฐม',
+                                                            'สมุทรสาคร'
+                                           )
+                                                THEN 'กรุงเทพและปริมณฑล'
+                                            ELSE g.name
+                                           END AS geography,
+                                       ROUND(
+                                               COUNT(DISTINCT u.id) * 100.0 / (
+                                                   SELECT COUNT(*) FROM users u2
+                                                  LEFT JOIN user_address ua2 ON ua2.user_id = u2.id
+                                                   WHERE ua2.is_default = TRUE
+                                               ),2
+                                       ) AS "totalUserPercent"
+                                   FROM users u
+                                            LEFT JOIN user_address ua ON ua.user_id = u.id
+                                            LEFT JOIN zipcode z ON z.id = ua.zipcode_id
+                                            LEFT JOIN provinces p ON p.id = z.province_id
+                                            LEFT JOIN geography g ON g.id = p.geo_id
+                                   WHERE ua.is_default = TRUE
+                                   GROUP BY
+                                       CASE
+                                           WHEN p.name IN (
+                                                           'กรุงเทพมหานคร',
+                                                           'นนทบุรี',
+                                                           'ปทุมธานี',
+                                                           'สมุทรปราการ',
+                                                           'นครปฐม',
+                                                           'สมุทรสาคร'
+                                               )
+                                               THEN 'กรุงเทพและปริมณฑล'
+                                           ELSE g.name
+                                           END
+                               ) t
+                      ) AS "regionalUsers"
+                  FROM orders o
+                  WHERE o.status IN ('COMPLETED')
+                    AND o.created_at >= (SELECT start_date FROM date_filter)
+                    AND o.created_at <= (SELECT end_date FROM date_filter);       
         """;
         
         return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
@@ -436,6 +454,6 @@ public class OwnerDashboardRepository {
             }catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-        });
+        }, period);
     }
 }
