@@ -95,9 +95,21 @@ public class OrderController {
         return new ResponseEntity<>(orderService.printShippingLabel(request.getIds()), HttpStatus.OK);
     }
     
+    @Operation(description = """
+        Status
+        ALL:      ทั้งหมด
+        PENDING:  รอดำเนินการ
+        APPROVED: อนุมัติ
+        REJECTED: ปฏิเสธ
+    """)
     @GetMapping("/moderator/orders/refund")
-    public ResponseEntity<RefundPaginationDTO> getAllOrdersRefund(@RequestParam(required = false, defaultValue = "0") Integer page, @RequestParam(required = false, defaultValue = "6") Integer size) {
-        return new ResponseEntity<>(orderService.getAllOrdersRefund(page, size), HttpStatus.OK);
+    public ResponseEntity<RefundPaginationDTO> getAllOrdersRefund(
+            @RequestParam(required = false, defaultValue = "") String keyword, 
+            @RequestParam(required = false, defaultValue = "ALL") String status, 
+            @RequestParam(required = false, defaultValue = "0") Integer page, 
+            @RequestParam(required = false, defaultValue = "6") Integer size
+    ) {
+        return new ResponseEntity<>(orderService.getAllOrdersRefund(keyword, status, page, size), HttpStatus.OK);
     }
     
     @GetMapping("/moderator/orders/refund/{refundNo}")

@@ -6,13 +6,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ReviewerDTO {
+public class NotifyOwnerResponseDTO {
     private Long id;
-    private String name;
-    private String imageUrl;
+    private String title;
+    private String message;
+    private String sendTo;
+    private LocalDateTime createdAt;
 }

@@ -6,13 +6,20 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-public class ReviewerDTO {
+public class UserManagementDTO {
     private Long id;
     private String name;
-    private String imageUrl;
+    private String email;
+    private String phone;
+    private String role;
+    private boolean isSuspended;
+    private String suspensionReason;
+    private LocalDateTime suspendAt;
 }

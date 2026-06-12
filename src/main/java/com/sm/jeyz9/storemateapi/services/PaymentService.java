@@ -3,6 +3,8 @@ package com.sm.jeyz9.storemateapi.services;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.CheckoutTypeName;
@@ -266,8 +268,14 @@ public class PaymentService {
     public String sendRefundRequest(RefundRequestDTO request, String email) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
         Order order = orderRepository.findOrderByOrderNoAndUserId(request.getOrderNo(), user.getId()).orElseThrow(() -> new WebException(HttpStatus.FORBIDDEN, "This order does not belong to you"));
-        if(!order.getStatus().equals(OrderStatusName.PROCESSING) || !(order.getCheckoutType().equals(CheckoutTypeName.CARD) || order.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY))) {
+        if(!order.getStatus().equals(OrderStatusName.PROCESSING) && !order.getStatus().equals(OrderStatusName.PENDING)) {
             throw new WebException(HttpStatus.BAD_REQUEST, "Can't refund this order");
+        }
+        
+        if(order.getStatus().equals(OrderStatusName.PENDING)) {
+            order.setStatus(OrderStatusName.CANCELLED);
+            orderRepository.save(order);
+            return "Cancel order success";
         }
         
         boolean existRefund = refundRequestRepository.existsByStatusAndOrderId(RefundStatusName.PENDING.name(), order.getId());
@@ -291,33 +299,77 @@ public class PaymentService {
     
     @Transactional
     public String refundApprove(String refundNo) {
-        RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
-        
-        if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
-            throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
-        }
-        refundRequest.setApprovedAt(LocalDateTime.now());
-        refundRequest.setStatus(RefundStatusName.APPROVED);
-        refundRequestRepository.save(refundRequest);
-
-        if(refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
-            return "Approve refund request success";
-        }
-        
-        long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
-        
         try {
-            Stripe.apiKey = secretKey;
-            RefundCreateParams params = RefundCreateParams.builder()
-                    .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
-                    .setAmount(amount)
-                    .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
-                    .build();
-            Refund.create(params);
-        }catch (StripeException e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+            RefundRequest refundRequest = refundRequestRepository.findOneByRefundNo(refundNo).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Refund request not found"));
+
+            if (!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't approved");
+            }
+            refundRequest.setApprovedAt(LocalDateTime.now());
+            refundRequest.setStatus(RefundStatusName.APPROVED);
+            refundRequestRepository.save(refundRequest);
+
+            Order order = orderRepository.findById(refundRequest.getOrder().getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+
+            if (refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
+                order.setStatus(OrderStatusName.CANCELLED);
+                orderRepository.save(order);
+                return "Approve refund request success";
+            }
+
+            long amount = (long) (refundRequest.getOrder().getOrderItems().stream().mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity()).sum() * 100);
+
+            try {
+                Stripe.apiKey = secretKey;
+                RefundCreateParams params = RefundCreateParams.builder()
+                        .setPaymentIntent(refundRequest.getOrder().getStripePaymentIntent())
+                        .setAmount(amount)
+                        .setReason(RefundCreateParams.Reason.REQUESTED_BY_CUSTOMER)
+                        .build();
+                Refund.create(params);
+            } catch (StripeException e) {
+                throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+            }
+            order.setStatus(OrderStatusName.REFUNDED);
+            orderRepository.save(order);
+            return "Approve refund request success";
+        }catch(Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
-        return "Approve refund request success";
+    }
+
+    public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) throws Exception {
+
+        Order order = orderRepository.findOneByOrderNo(request.getOrderNo()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        PaymentIntent paymentIntent =
+                PaymentIntent.retrieve(order.getStripePaymentIntent());
+
+        if ("requires_payment_method".equals(paymentIntent.getStatus())
+                || "requires_confirmation".equals(paymentIntent.getStatus())
+                || "requires_action".equals(paymentIntent.getStatus())) {
+
+            return RetryPaymentResponseDTO.builder()
+                    .clientSecret(paymentIntent.getClientSecret())
+                    .paymentIntentId(paymentIntent.getId())
+                    .build();
+        }
+
+        PaymentIntentCreateParams params =
+                PaymentIntentCreateParams.builder()
+                        .setAmount(paymentIntent.getAmount())
+                        .setCurrency(paymentIntent.getCurrency())
+                        .build();
+
+        PaymentIntent newPaymentIntent = PaymentIntent.create(params);
+        
+        order.setStripePaymentIntent(newPaymentIntent.getId());
+        order.setClientSecret(newPaymentIntent.getClientSecret());
+        orderRepository.save(order);
+
+        return RetryPaymentResponseDTO.builder()
+                .clientSecret(newPaymentIntent.getClientSecret())
+                .paymentIntentId(newPaymentIntent.getId())
+                .build();
     }
 
     public String refundReject(String refundNo) {

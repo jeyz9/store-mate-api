@@ -11,8 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ReviewerDTO {
-    private Long id;
-    private String name;
-    private String imageUrl;
+public class RetryPaymentResponseDTO {
+    private String paymentIntentId;
+    private String clientSecret;
 }

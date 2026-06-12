@@ -93,6 +93,11 @@ public class UserProfileServiceImpl implements UserProfileService {
 
                 // ตรวจสอบอีเมลซ้ำ (ถ้ามีการเปลี่ยน)
                 if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+
+                    if (!request.getEmail().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                        throw new WebException(HttpStatus.BAD_REQUEST, "รูปแบบอีเมลไม่ถูกต้อง");
+                    }
+
                     if (userRepository.existsUserByEmail(request.getEmail())) {
                         throw new WebException(HttpStatus.BAD_REQUEST, "อีเมลนี้มีผู้อื่นใช้งานแล้ว");
                     }

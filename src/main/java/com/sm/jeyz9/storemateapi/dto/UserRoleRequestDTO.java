@@ -1,7 +1,8 @@
 package com.sm.jeyz9.storemateapi.dto;
 
+import com.sm.jeyz9.storemateapi.models.RoleName;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,9 +11,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-public class ReviewerDTO {
-    private Long id;
-    private String name;
-    private String imageUrl;
+public class UserRoleRequestDTO {
+
+    @NotNull(message = "Role is required")
+    private RoleName roleName;
 }
