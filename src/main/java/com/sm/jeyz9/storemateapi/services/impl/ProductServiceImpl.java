@@ -227,7 +227,9 @@ public class ProductServiceImpl implements ProductService {
         try {
             product.getProductImage().stream().map(
                     p -> {
-                        supabaseService.deleteProductImage(p.getImageUrl());
+                        if(supabaseService.imageExists(p.getImageUrl())){
+                            supabaseService.deleteProductImage(p.getImageUrl());
+                        }
                         return null;
                     }
             ).toList();
