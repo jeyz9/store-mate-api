@@ -30,6 +30,7 @@ supabase:
   bucket:
     product: "test"
     user: "test"
+    store: "test"
     
 stripe:
   secret-key: "test"

@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,6 +34,9 @@ public class SupabaseService {
 
     @Value("${supabase.bucket.user}")
     private String userBucket;
+
+    @Value("${supabase.bucket.store}")
+    private String storeBucket;
     
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -133,6 +137,39 @@ public class SupabaseService {
     }
 
     @Transactional
+    public String uploadStoreImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new WebException(HttpStatus.BAD_REQUEST, "ไฟล์รูปภาพว่างเปล่า");
+        }
+
+        try {
+            String originalName = file.getOriginalFilename();
+            String safeName = originalName.replaceAll("[^a-zA-Z0-9\\.\\-_]", "_");
+            String fileName = "profile_" + System.currentTimeMillis() + "_" + safeName;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
+
+            // ใช้ชื่อ Bucket สำหรับ User
+            String url = supabaseUrl + "/object/" + storeBucket + "/" + fileName;
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปโหลดรูปโปรไฟล์ได้");
+            }
+
+            return supabaseUrl + "/object/" + storeBucket + "/" + fileName;
+        } catch (IOException e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดในการอ่านไฟล์: " + e.getMessage());
+        }
+    }
+
+    @Transactional
     public void deleteUserAvatar(String imageUrl) {
         if (imageUrl == null || imageUrl.isEmpty()) return;
 
@@ -147,6 +184,75 @@ public class SupabaseService {
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             String url = supabaseUrl + "/object/" + userBucket + "/" + fileName;
+
+            restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
+        } catch (Exception e) {
+            System.err.println("ไม่สามารถลบไฟล์จาก Storage ได้: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void deleteProductImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+
+        try {
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + supabaseBucket + "/" + fileName;
+
+            restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    public boolean imageExists(String imageUrl) {
+        try {
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + supabaseBucket + "/" + fileName;
+
+            restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    Void.class
+            );
+
+            return true;
+
+        } catch (HttpClientErrorException.NotFound e) {
+            return false;
+        }
+    }
+
+    @Transactional
+    public void deleteStoreImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) return;
+
+        try {
+            // ตัด URL เพื่อเอาชื่อไฟล์ที่อยู่หลัง / ตัวสุดท้าย
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + storeBucket + "/" + fileName;
 
             restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
         } catch (Exception e) {

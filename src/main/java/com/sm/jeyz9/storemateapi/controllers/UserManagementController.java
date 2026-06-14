@@ -3,6 +3,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 import com.sm.jeyz9.storemateapi.dto.PaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.UserManagementDTO;
 import com.sm.jeyz9.storemateapi.dto.UserRoleRequestDTO;
+import com.sm.jeyz9.storemateapi.models.RoleName;
 import com.sm.jeyz9.storemateapi.services.UserManagementService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -28,32 +29,40 @@ public class UserManagementController {
     @Operation(
             summary = "แสดงผู้ใช้ทั้งหมด",
             description = """
-                ดึงรายชื่อผู้ใช้งานทั้งหมดแบบแบ่งหน้า (Pagination)
-                
-                ตัวอย่าง URL : /api/v1/owner/users?page=0&size=5
-                
-                - page: หน้าที่ต้องการ (เริ่มจาก 0) เช่น หน้าแรก = 0, หน้าที่สอง = 1
-                - size: จำนวนรายการต่อหน้า (default = 5) 
-                    เปลี่ยนจำนวนที่จะให้แสดงได้ตามที่เราพิม
-                
-                ตัวอย่าง:
-                - หน้าแรก 3 รายการ  → ?page=0&size=3
-                - หน้าที่สอง 3 รายการ → ?page=1&size=3
-                - หน้าที่สาม 10 รายการ → ?page=2&size=10
-                
-                Response จะมี:
-                - data: รายชื่อผู้ใช้ในหน้านั้น
-                - page: หน้าปัจจุบัน
-                - size: จำนวนรายการต่อหน้า
-                - total: จำนวนผู้ใช้ทั้งหมดในระบบ
-                """
+            ดึงรายชื่อผู้ใช้งานทั้งหมดแบบแบ่งหน้า (Pagination)
+            
+            ตัวอย่าง URL : /api/v1/owner/users?page=0&size=5
+            ตัวอย่าง URL เต็ม : /api/v1/owner/users?page=0&size=5&search=fam&roleName=USER&suspended=false
+            
+            - page: หน้าที่ต้องการ (เริ่มจาก 0) เช่น หน้าแรก = 0, หน้าที่สอง = 1
+            - size: จำนวนรายการต่อหน้า (default = 5)
+            - search: ค้นหาด้วยชื่อหรืออีเมล เช่น ?search=fam
+            - roleName: กรองด้วย role เช่น ?roleName=USER, MODERATOR, ADMIN
+            - suspended: กรองด้วยสถานะ เช่น ?suspended=true หรือ ?suspended=false
+            
+            ตัวอย่าง:
+            - หน้าแรก 3 รายการ  → ?page=0&size=3
+            - หน้าที่สอง 3 รายการ → ?page=1&size=3
+            - ค้นหาชื่อ → ?search=fam
+            - กรอง role → ?roleName=USER
+            - กรองสถานะ → ?suspended=true
+            
+            Response จะมี:
+            - data: รายชื่อผู้ใช้ในหน้านั้น
+            - page: หน้าปัจจุบัน
+            - size: จำนวนรายการต่อหน้า
+            - total: จำนวนผู้ใช้ทั้งหมดในระบบ
+            """
     )
     @GetMapping("/users")
     public ResponseEntity<PaginationDTO<UserManagementDTO>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) RoleName roleName,
+            @RequestParam(required = false) Boolean suspended,
             Principal principal) {
-        return ResponseEntity.ok(userManagementService.getAllUsers(page, size, principal.getName()));
+        return ResponseEntity.ok(userManagementService.getAllUsers(page, size, principal.getName(), search, roleName, suspended));
     }
 
     @Operation(summary = "เปลี่ยนบทบาทผู้ใช้งาน",

@@ -21,4 +21,5 @@ public class OrderDetailsDTO {
     private OrderRecipientDTO orderRecipient;
     private Double total;
     private String checkoutType;
+    private String reason;
 }
