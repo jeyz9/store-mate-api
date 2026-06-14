@@ -36,3 +36,8 @@ stripe:
   webhook-secret: "test"
   success-url: "test"
   cancel-url: "test"
+
+line:
+  hannel:
+    secret: "test"
+    token: "test"
