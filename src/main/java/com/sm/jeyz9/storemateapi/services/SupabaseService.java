@@ -224,19 +224,17 @@ public class SupabaseService {
 
             String url = supabaseUrl + "/object/" + supabaseBucket + "/" + fileName;
 
-            ResponseEntity<Void> response = restTemplate.exchange(
+            restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
                     Void.class
             );
 
-            return response.getStatusCode().is2xxSuccessful();
+            return true;
 
         } catch (HttpClientErrorException.NotFound e) {
             return false;
-        } catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
