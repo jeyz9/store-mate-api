@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -207,7 +208,35 @@ public class SupabaseService {
 
             restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
         } catch (Exception e) {
-            System.err.println("ไม่สามารถลบไฟล์จาก Storage ได้: " + e.getMessage());
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+    public boolean imageExists(String imageUrl) {
+        try {
+            String fileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("apiKey", supabaseKey);
+            headers.set("Authorization", "Bearer " + supabaseKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = supabaseUrl + "/object/" + supabaseBucket + "/" + fileName;
+
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.HEAD,
+                    entity,
+                    Void.class
+            );
+
+            return response.getStatusCode().is2xxSuccessful();
+
+        } catch (HttpClientErrorException.NotFound e) {
+            return false;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
