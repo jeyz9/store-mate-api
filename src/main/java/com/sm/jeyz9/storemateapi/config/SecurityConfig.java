@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests((authorize) -> 
                         authorize
                                 .requestMatchers("/ws/**").permitAll()
+                                .requestMatchers("/api/v1/line/webhook").permitAll()
                                 .requestMatchers(HttpMethod.GET,
                                         "/v3/api-docs/**",
                                         "/swagger-ui.html",
@@ -72,7 +73,8 @@ public class SecurityConfig {
                                         "/api/v1/auth/register",
                                         "/api/v1/auth/forgot-password",
                                         "/api/v1/auth/reset-password",
-                                        
+                                        "/api/v1/line/webhook",
+
                                         // TODO: for test
                                         "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",

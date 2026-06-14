@@ -45,7 +45,10 @@ public class User {
     private String password;
 
     private String imageUrl;
-    
+
+    @Column(name = "line_id", unique = true)
+    private String lineUserId;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_role",
@@ -57,6 +60,5 @@ public class User {
     private LocalDateTime createdAt = LocalDateTime.now();
     
     private boolean isSuspended;
-    private String suspension_reason;
     private LocalDateTime suspendAt;
 }

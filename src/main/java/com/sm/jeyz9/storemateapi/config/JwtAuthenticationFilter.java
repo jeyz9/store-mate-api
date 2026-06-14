@@ -29,7 +29,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getServletPath().startsWith("/ws");
+        String path = request.getServletPath();
+        return request.getServletPath().startsWith("/ws")||
+                path.equals("/api/v1/line/webhook");
     }
     
     @Override
@@ -39,7 +41,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String path = request.getServletPath();
-        if (path.startsWith("/api/v1/stripe/webhook")) {
+        if (path.startsWith("/api/v1/stripe/webhook") ||
+                path.equals("/api/v1/line/webhook")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -48,6 +51,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+
+
         
         String authHeader = request.getHeader("Authorization");
         if(authHeader == null || !authHeader.startsWith("Bearer ")) {

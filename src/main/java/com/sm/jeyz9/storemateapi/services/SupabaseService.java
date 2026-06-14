@@ -83,10 +83,11 @@ public class SupabaseService {
                     throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload image: " + fileName);
                 }
 
+                String publicUrl = supabaseUrl + "/object/public/" + supabaseBucket + "/" + encodedFileName;
                 ProductImage productImage = ProductImage.builder()
                         .id(null)
                         .product(product)
-                        .imageUrl(url)
+                        .imageUrl(publicUrl)
                         .imageName(originalName)
                         .createdAt(LocalDateTime.now())
                         .build();
@@ -117,7 +118,6 @@ public class SupabaseService {
 
             HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
 
-            // ใช้ชื่อ Bucket สำหรับ User
             String url = supabaseUrl + "/object/" + userBucket + "/" + fileName;
 
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
@@ -126,7 +126,7 @@ public class SupabaseService {
                 throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "ไม่สามารถอัปโหลดรูปโปรไฟล์ได้");
             }
 
-            return supabaseUrl + "/object/" + userBucket + "/" + fileName;
+            return supabaseUrl + "/object/public/" + userBucket + "/" + fileName;
         } catch (IOException e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "เกิดข้อผิดพลาดในการอ่านไฟล์: " + e.getMessage());
         }
