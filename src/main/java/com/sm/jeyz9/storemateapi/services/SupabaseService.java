@@ -226,7 +226,7 @@ public class SupabaseService {
 
             ResponseEntity<Void> response = restTemplate.exchange(
                     url,
-                    HttpMethod.HEAD,
+                    HttpMethod.GET,
                     entity,
                     Void.class
             );
