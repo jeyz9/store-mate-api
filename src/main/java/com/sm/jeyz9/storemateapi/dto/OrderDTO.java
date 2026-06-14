@@ -23,4 +23,5 @@ public class OrderDTO {
     private Set<OrderItemDTO> orderItems;
     private Double total;
     private LocalDateTime createdAt;
+    private String reason;
 }

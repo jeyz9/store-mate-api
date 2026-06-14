@@ -66,6 +66,10 @@ public class Order {
     @Builder.Default
     @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<OrderAddress> orderAddresses = new HashSet<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "order", orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<RefundRequest> refundRequest = new HashSet<>();
     
     private boolean printed;
     private Double totalPrice;
