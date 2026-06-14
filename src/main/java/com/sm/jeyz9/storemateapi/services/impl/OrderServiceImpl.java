@@ -48,6 +48,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -89,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
             
             return mapToDTO(orders);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
     }
@@ -344,6 +346,12 @@ public class OrderServiceImpl implements OrderService {
                         .zipcode(oa.getZipcode().getZipcode())
                         .build()
         ).orElse(null);
+
+        String refundReason = null;
+        if(!order.getRefundRequest().isEmpty()) {
+            refundReason = order.getRefundRequest().stream().sorted(Comparator.comparing(RefundRequest::getRequestedAt)).findFirst().get().getReason();
+        }
+        
         return OrderDetailsDTO.builder()
                 .id(order.getId())
                 .orderNo(order.getOrderNo())
@@ -352,6 +360,7 @@ public class OrderServiceImpl implements OrderService {
                 .orderRecipient(orderRecipientDTO)
                 .total(order.getOrderItems().stream().mapToDouble(oi -> oi.getQuantity() * oi.getProduct().getPrice()).sum())
                 .checkoutType(order.getCheckoutType() != null ? order.getCheckoutType().name() : null)
+                .reason(refundReason)
                 .build();
     }
     
@@ -384,6 +393,11 @@ public class OrderServiceImpl implements OrderService {
                                     .zipcode(a.getZipcode().getZipcode())
                                     .build()
                     ).collect(Collectors.toSet());
+
+                    String refundReason = null;
+                    if(!o.getRefundRequest().isEmpty()) {
+                        refundReason = o.getRefundRequest().stream().sorted(Comparator.comparing(RefundRequest::getRequestedAt)).findFirst().get().getReason();
+                    }
                     
                     return OrderDTO.builder()
                             .id(o.getId())
@@ -394,6 +408,7 @@ public class OrderServiceImpl implements OrderService {
                             .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
                             .total(o.getTotalPrice())
                             .createdAt(o.getCreatedAt())
+                            .reason(refundReason)
                             .build();
                 }
         ).toList();
