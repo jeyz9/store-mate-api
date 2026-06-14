@@ -43,7 +43,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH z.subdistrict
         LEFT JOIN FETCH z.district
         LEFT JOIN FETCH z.province
+        LEFT JOIN FETCH o.refundRequest rr
         WHERE o.user = :user
+        ORDER BY o.createdAt DESC
     """)
     List<Order> findAllByUser(@Param("user") User user);
 
