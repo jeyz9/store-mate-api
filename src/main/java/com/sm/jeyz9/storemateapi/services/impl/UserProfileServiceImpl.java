@@ -244,6 +244,14 @@ public class UserProfileServiceImpl implements UserProfileService {
                 throw new WebException(HttpStatus.FORBIDDEN, "คุณไม่มีสิทธิ์ลบที่อยู่นี้");
             }
 
+            List<UserAddress> allAddresses = userAddressRepository
+                    .findByUserIdOrderByIsDefaultDescCreatedAtDesc(addressToDelete.getUser().getId());
+
+            if (allAddresses.size() <= 1) {
+                throw new WebException(HttpStatus.BAD_REQUEST,
+                        "ไม่สามารถลบได้ เนื่องจากต้องมีที่อยู่เริ่มต้นอย่างน้อย 1 รายการ");
+            }
+
             boolean wasDefault = Boolean.TRUE.equals(addressToDelete.getIsDefault());
 
             userAddressRepository.delete(addressToDelete);
