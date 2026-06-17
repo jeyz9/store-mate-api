@@ -22,4 +22,5 @@ public class ProductDTO {
     private String description;
     private String status;
     private LocalDateTime createdAt;
+    private String productStatus;
 }
