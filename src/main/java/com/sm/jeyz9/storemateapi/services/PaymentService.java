@@ -100,10 +100,7 @@ public class PaymentService {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
                 }
                 
-                Product product = productRepository.findById(id)
-                        .orElseThrow(() ->
-                                new WebException(HttpStatus.NOT_FOUND, "Product not found")
-                        );
+                Product product = cartItem.getProduct();
 
                 if (
                         !(product.getStock_quantity() > 0
@@ -116,10 +113,8 @@ public class PaymentService {
                     );
                 }
                 
-                Product updateProduct = Product.builder()
-                        .stock_quantity(product.getStock_quantity() - cartItem.getQuantity())
-                        .build();
-                productRepository.save(updateProduct);
+                product.setStock_quantity(product.getStock_quantity() - cartItem.getQuantity());
+                productRepository.save(product);
                 
                 cartItemRepository.delete(cartItem);
                 
@@ -230,10 +225,8 @@ public class PaymentService {
 
             orderItemRepository.save(orderItem);
 
-            Product updateProduct = Product.builder()
-                    .stock_quantity(product.getStock_quantity() - request.getQuantity())
-                    .build();
-            productRepository.save(updateProduct);
+            product.setStock_quantity(product.getStock_quantity() - request.getQuantity());
+            productRepository.save(product);
 
             double totalPrice = orderItem.getUnitPrice() * orderItem.getQuantity();
             order.setTotalPrice(totalPrice);
