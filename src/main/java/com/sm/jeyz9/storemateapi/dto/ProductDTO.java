@@ -20,7 +20,6 @@ public class ProductDTO {
     private String categoryName;
     private Double price;
     private String description;
-    private String status;
     private LocalDateTime createdAt;
     private String productStatus;
 }
