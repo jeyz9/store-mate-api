@@ -209,6 +209,11 @@ public class PaymentService {
 
             orderItemRepository.save(orderItem);
 
+            Product updateProduct = Product.builder()
+                    .stock_quantity(product.getStock_quantity() - request.getQuantity())
+                    .build();
+            productRepository.save(updateProduct);
+
             double totalPrice = orderItem.getUnitPrice() * orderItem.getQuantity();
             order.setTotalPrice(totalPrice);
 

@@ -22,4 +22,5 @@ public class ProductDetailsDTO {
     private List<ProductImageDTO> productImages;
     private Double price;
     private List<ReviewDTO> reviews;
+    private String productStatus;
 }
