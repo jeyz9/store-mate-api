@@ -108,6 +108,7 @@ public class ProductServiceImpl implements ProductService {
         try {
             List<Product> productList = productRepository.findAll();
             List<ProductDTO> products = mapToProductDTO(productList);
+            products = products.stream().filter(ProductDTO::isDeleted).toList();
             return ProductWithCategoryDTO.builder()
                     .promotion(
                             products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).limit(4).toList()
@@ -132,6 +133,7 @@ public class ProductServiceImpl implements ProductService {
         try{
             List<Product> productList = productRepository.findAll();
             Stream<Product> stream = productList.stream();
+            stream = stream.filter(Product::isDeleted);
             
             if(keyword != null && !keyword.trim().isEmpty()){
                 stream = stream.filter(p -> p.getName().toLowerCase().contains(keyword.toLowerCase()));
@@ -223,19 +225,8 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public String removeProduct(Long id) {
         Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
-        try {
-            product.getProductImage().stream().map(
-                    p -> {
-                        if(supabaseService.imageExists(p.getImageUrl())){
-                            supabaseService.deleteProductImage(p.getImageUrl());
-                        }
-                        return null;
-                    }
-            ).toList();
-            productRepository.delete(product);
-        }catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
-        }
+        product.setDeleted(true);
+        productRepository.save(product);
         return "Delete product success";
     }
 
@@ -287,6 +278,7 @@ public class ProductServiceImpl implements ProductService {
                             .price(p.getPrice())
                             .createdAt(p.getCreatedAt())
                             .productStatus(p.getProductStatus().getStatus())
+                            .deleted(p.isDeleted())
                             .build()
         ).sorted(Comparator.comparing(ProductDTO::getCreatedAt)).toList();
     }
