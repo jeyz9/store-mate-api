@@ -15,6 +15,7 @@ import com.sm.jeyz9.storemateapi.models.Category;
 import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
 import com.sm.jeyz9.storemateapi.models.ProductStatus;
+import com.sm.jeyz9.storemateapi.models.ProductStatusName;
 import com.sm.jeyz9.storemateapi.models.Review;
 import com.sm.jeyz9.storemateapi.repository.CategoryRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductImageRepository;
@@ -225,7 +226,9 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public String removeProduct(Long id) {
         Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
+        ProductStatus status = productStatusRepository.findByStatus(ProductStatusName.DELETED.name()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Status not found"));
         product.setDeleted(true);
+        product.setProductStatus(status);
         productRepository.save(product);
         return "Delete product success";
     }
