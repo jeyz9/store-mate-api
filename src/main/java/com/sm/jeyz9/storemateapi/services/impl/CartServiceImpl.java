@@ -7,6 +7,7 @@ import com.sm.jeyz9.storemateapi.models.Cart;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.CartStatusName;
 import com.sm.jeyz9.storemateapi.models.Product;
+import com.sm.jeyz9.storemateapi.models.ProductStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.repository.CartItemRepository;
 import com.sm.jeyz9.storemateapi.repository.CartRepository;
@@ -42,8 +43,15 @@ public class CartServiceImpl implements CartService {
         try {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+
             Product product = productRepository.findById(request.getProductId())
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found."));
+
+            // เช็คว่า product ยัง active อยู่ไหม
+            if (product.getProductStatus() == null ||
+                    !product.getProductStatus().getStatus().equals(ProductStatusName.ACTIVE.name())) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "สินค้านี้ไม่สามารถเพิ่มในตะกร้าได้");
+            }
 
             // 1. ค้นหาตะกร้าที่ Active ของ User คนนี้เท่านั้น
             Cart cart = cartRepository.findCartByStatusAndUserId(CartStatusName.ACTIVE, user.getId()).orElseGet(() -> {
@@ -80,9 +88,10 @@ public class CartServiceImpl implements CartService {
             }
             cartItemRepository.save(cartItem);
             return "Add product to cart success";
+
         } catch (WebException e) {
             throw e;
-        } catch(Exception e) {
+        } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error " + e.getMessage());
         }
     }

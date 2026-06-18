@@ -99,9 +99,25 @@ public class PaymentService {
                 if (!cartItem.getCart().getUser().getId().equals(user.getId())) {
                     throw new WebException(HttpStatus.BAD_REQUEST, "Create order fail");
                 }
+                
+                Product product = cartItem.getProduct();
 
+                if (
+                        !(product.getStock_quantity() > 0
+                                && product.getProductStatus().getId().equals(1L)
+                                && product.getStock_quantity() >= cartItem.getQuantity())
+                ) {
+                    throw new WebException(
+                            HttpStatus.BAD_REQUEST,
+                            "Product is unavailable"
+                    );
+                }
+                
+                product.setStock_quantity(product.getStock_quantity() - cartItem.getQuantity());
+                productRepository.save(product);
+                
                 cartItemRepository.delete(cartItem);
-
+                
                 return OrderItem.builder()
                         .product(cartItem.getProduct())
                         .quantity(cartItem.getQuantity())
@@ -208,6 +224,9 @@ public class PaymentService {
                     .build();
 
             orderItemRepository.save(orderItem);
+
+            product.setStock_quantity(product.getStock_quantity() - request.getQuantity());
+            productRepository.save(product);
 
             double totalPrice = orderItem.getUnitPrice() * orderItem.getQuantity();
             order.setTotalPrice(totalPrice);

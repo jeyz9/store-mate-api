@@ -15,7 +15,6 @@ import com.sm.jeyz9.storemateapi.models.Category;
 import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
 import com.sm.jeyz9.storemateapi.models.ProductStatus;
-import com.sm.jeyz9.storemateapi.models.ProductStatusName;
 import com.sm.jeyz9.storemateapi.models.Review;
 import com.sm.jeyz9.storemateapi.repository.CategoryRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductImageRepository;
@@ -109,7 +108,6 @@ public class ProductServiceImpl implements ProductService {
         try {
             List<Product> productList = productRepository.findAll();
             List<ProductDTO> products = mapToProductDTO(productList);
-            products = products.stream().filter(a -> a.getStatus().equalsIgnoreCase(ProductStatusName.ACTIVE.toString())).toList();
             return ProductWithCategoryDTO.builder()
                     .promotion(
                             products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).limit(4).toList()
@@ -188,6 +186,7 @@ public class ProductServiceImpl implements ProductService {
                     .price(product.getPrice())
                     .RatingScore(ratingScore)
                     .reviews(mapToReviewDTO(reviews))
+                    .productStatus(product.getProductStatus().getStatus())
                     .build();
         } catch (Exception e) {
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
@@ -285,9 +284,9 @@ public class ProductServiceImpl implements ProductService {
                             .categoryName(p.getCategory().getName())
                             .description(p.getDescription())
                             .imageUrl(p.getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null))
-                            .status(p.getProductStatus().getStatus())
                             .price(p.getPrice())
                             .createdAt(p.getCreatedAt())
+                            .productStatus(p.getProductStatus().getStatus())
                             .build()
         ).sorted(Comparator.comparing(ProductDTO::getCreatedAt)).toList();
     }
