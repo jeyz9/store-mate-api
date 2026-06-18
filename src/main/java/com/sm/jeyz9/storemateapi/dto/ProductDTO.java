@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,4 +23,7 @@ public class ProductDTO {
     private String description;
     private LocalDateTime createdAt;
     private String productStatus;
+    
+    @JsonProperty("is_deleted")
+    private boolean deleted;
 }

@@ -58,4 +58,7 @@ public class Product {
     private LocalDateTime createdAt;
     
     private String productNo;
+    
+    @Column(name = "is_deleted")
+    private boolean deleted;
 }
