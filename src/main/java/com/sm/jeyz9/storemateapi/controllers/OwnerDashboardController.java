@@ -2,7 +2,6 @@ package com.sm.jeyz9.storemateapi.controllers;
 
 import com.sm.jeyz9.storemateapi.dto.OwnerDashboardDTO;
 import com.sm.jeyz9.storemateapi.dto.SalesAnalyticsDashboardDTO;
-import com.sm.jeyz9.storemateapi.dto.ShippingImportDTO;
 import com.sm.jeyz9.storemateapi.services.OwnerDashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/owner")
