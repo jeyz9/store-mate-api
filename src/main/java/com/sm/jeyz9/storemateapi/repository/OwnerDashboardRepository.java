@@ -312,53 +312,51 @@ public class OwnerDashboardRepository {
                       (
                           SELECT COALESCE(json_agg(t), '[]')
                           FROM (
-                                   SELECT
-                                       CASE WHEN p.name IN (
-                                                            'กรุงเทพมหานคร',
-                                                            'นนทบุรี',
-                                                            'ปทุมธานี',
-                                                            'สมุทรปราการ',
-                                                            'นครปฐม',
-                                                            'สมุทรสาคร'
-                                           )
-                                                THEN 'กรุงเทพและปริมณฑล'
-                                            ELSE g.name
-                                           END AS geography,
-                                       ROUND(
-                                               (
-                                                   COALESCE(SUM(o.total_price), 0) * 100.0 /
-                                                   NULLIF((
-                                                       SELECT COALESCE(SUM(o2.total_price), 0)
-                                                       FROM orders o2
-                                                       WHERE o2.status IN ('COMPLETED')
-                                                        AND o2.created_at >= (SELECT start_date FROM date_filter)
-                                                        AND o2.created_at <= (SELECT end_date FROM date_filter)
-                                                   ), 0))::numeric, 2
-                                       ) AS "totalRevenuePercent"
-                                   FROM orders o
-                                            LEFT JOIN order_address oa ON o.id = oa.order_id
-                                            LEFT JOIN order_items oi ON oi.order_id = o.id
-                                            LEFT JOIN products pd ON pd.id = oi.product_id
-                                            LEFT JOIN zipcode z ON z.id = oa.zipcode_id
-                                            LEFT JOIN provinces p ON p.id = z.province_id
-                                            LEFT JOIN geography g ON g.id = p.geo_id
-                                   WHERE o.status IN ('COMPLETED')
-                                     AND o.created_at >= (SELECT start_date FROM date_filter)
-                                     AND o.created_at <= (SELECT end_date FROM date_filter)
-                                   GROUP BY
-                                       CASE
-                                           WHEN p.name IN (
-                                                           'กรุงเทพมหานคร',
-                                                           'นนทบุรี',
-                                                           'ปทุมธานี',
-                                                           'สมุทรปราการ',
-                                                           'นครปฐม',
-                                                           'สมุทรสาคร'
-                                               )
-                                               THEN 'กรุงเทพและปริมณฑล'
-                                           ELSE g.name
-                                           END
-                               ) t
+                               SELECT
+                                   CASE WHEN p.name IN (
+                                                        'กรุงเทพมหานคร',
+                                                        'นนทบุรี',
+                                                        'ปทุมธานี',
+                                                        'สมุทรปราการ',
+                                                        'นครปฐม',
+                                                        'สมุทรสาคร'
+                                       )
+                                            THEN 'กรุงเทพและปริมณฑล'
+                                        ELSE g.name
+                                       END AS geography,
+                                   ROUND(
+                                           COUNT(DISTINCT o.id) * 100.0 / (
+                                                       SELECT COUNT(*)
+                                                          FROM orders o2
+                                                          WHERE o2.status IN ('COMPLETED')
+                                                            AND o2.created_at >= (SELECT start_date FROM date_filter)
+                                                            AND o2.created_at <= (SELECT end_date FROM date_filter)
+                                   )
+                                   ) AS "totalRevenuePercent"
+                               FROM orders o
+                                        LEFT JOIN order_address oa ON o.id = oa.order_id
+                                        LEFT JOIN order_items oi ON oi.order_id = o.id
+                                        LEFT JOIN products pd ON pd.id = oi.product_id
+                                        LEFT JOIN zipcode z ON z.id = oa.zipcode_id
+                                        LEFT JOIN provinces p ON p.id = z.province_id
+                                        LEFT JOIN geography g ON g.id = p.geo_id
+                               WHERE o.status IN ('COMPLETED')
+                                 AND o.created_at >= (SELECT start_date FROM date_filter)
+                                 AND o.created_at <= (SELECT end_date FROM date_filter)
+                               GROUP BY
+                               CASE
+                               WHEN p.name IN (
+                                               'กรุงเทพมหานคร',
+                                               'นนทบุรี',
+                                               'ปทุมธานี',
+                                               'สมุทรปราการ',
+                                               'นครปฐม',
+                                               'สมุทรสาคร'
+                                   )
+                                   THEN 'กรุงเทพและปริมณฑล'
+                               ELSE g.name
+                               END
+                           ) t
                       ) AS "regionalRevenue",
                   
                       (
@@ -407,7 +405,7 @@ public class OwnerDashboardRepository {
                   FROM orders o
                   WHERE o.status IN ('COMPLETED')
                     AND o.created_at >= (SELECT start_date FROM date_filter)
-                    AND o.created_at <= (SELECT end_date FROM date_filter);       
+                    AND o.created_at <= (SELECT end_date FROM date_filter);
         """;
         
         return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
