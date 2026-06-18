@@ -108,7 +108,7 @@ public class ProductServiceImpl implements ProductService {
         try {
             List<Product> productList = productRepository.findAll();
             List<ProductDTO> products = mapToProductDTO(productList);
-            products = products.stream().filter(ProductDTO::isDeleted).toList();
+            products = products.stream().filter(p -> !p.isDeleted()).toList();
             return ProductWithCategoryDTO.builder()
                     .promotion(
                             products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).limit(4).toList()
@@ -133,7 +133,7 @@ public class ProductServiceImpl implements ProductService {
         try{
             List<Product> productList = productRepository.findAll();
             Stream<Product> stream = productList.stream();
-            stream = stream.filter(Product::isDeleted);
+            stream = stream.filter(p -> !p.isDeleted());
             
             if(keyword != null && !keyword.trim().isEmpty()){
                 stream = stream.filter(p -> p.getName().toLowerCase().contains(keyword.toLowerCase()));
