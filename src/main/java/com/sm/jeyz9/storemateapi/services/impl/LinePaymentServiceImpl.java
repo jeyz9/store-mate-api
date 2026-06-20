@@ -123,7 +123,7 @@ public class LinePaymentServiceImpl implements LinePaymentService {
                     .status(OrderStatusName.PENDING)
                     .user(user)
                     .checkoutType(CheckoutTypeName.PROMPTPAY)
-                    .orderChannel(OrderChannelName.ONLINE)
+                    .orderChannel(OrderChannelName.LINE_OA)
                     .stripePaymentIntent(intent.getId())
                     .clientSecret(intent.getClientSecret())
                     .createdAt(LocalDateTime.now())

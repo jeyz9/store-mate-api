@@ -29,12 +29,24 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class LineMessageServiceImpl implements LineMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(LineMessageServiceImpl.class);
+
+    // ─── Theme ────────────────────────────────────────────────────────────────
+    private static final String C_BG        = "#F5ECD7"; // parchment background
+    private static final String C_PRIMARY   = "#3D6B2C"; // dark forest green
+    private static final String C_GOLD      = "#8B6914"; // golden brown
+    private static final String C_TEXT      = "#2D4A1E"; // dark green text
+    private static final String C_SUBTEXT   = "#6B5B3E"; // warm brown subtext
+    private static final String C_MUTED     = "#9E8A6F"; // muted/label text
+    private static final String C_PRICE     = "#7B1A1A"; // deep red for price
+    private static final String C_WHITE     = "#FFFFFF";
+    private static final String C_DANGER    = "#8B1A1A"; // delete/cancel red
 
     private final LineConfig lineConfig;
     private final RestTemplate restTemplate;
@@ -49,8 +61,11 @@ public class LineMessageServiceImpl implements LineMessageService {
     private final SubdistrictRepository subdistrictRepository;
     private final ZipcodeRepository zipcodeRepository;
     private final UserAddressRepository userAddressRepository;
+    private final com.sm.jeyz9.storemateapi.services.StoreInfoService storeInfoService;
+    private final com.sm.jeyz9.storemateapi.repository.ProductRepository productRepository;
 
-    // ─── Conversation state (address flow) ────────────────────────────────────
+    // ─── Address session state ─────────────────────────────────────────────────
+
     private static class AddressSession {
         final Long subdistrictId;
         final Long districtId;
@@ -62,6 +77,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         }
     }
     private final Map<String, AddressSession> addressSessions = new ConcurrentHashMap<>();
+    private final Set<String> phoneSessions = ConcurrentHashMap.newKeySet();
 
     @Autowired
     public LineMessageServiceImpl(LineConfig lineConfig, RestTemplate restTemplate,
@@ -74,7 +90,9 @@ public class LineMessageServiceImpl implements LineMessageService {
                                   DistrictRepository districtRepository,
                                   SubdistrictRepository subdistrictRepository,
                                   ZipcodeRepository zipcodeRepository,
-                                  UserAddressRepository userAddressRepository) {
+                                  UserAddressRepository userAddressRepository,
+                                  com.sm.jeyz9.storemateapi.services.StoreInfoService storeInfoService,
+                                  com.sm.jeyz9.storemateapi.repository.ProductRepository productRepository) {
         this.lineConfig            = lineConfig;
         this.restTemplate          = restTemplate;
         this.productService        = productService;
@@ -88,7 +106,11 @@ public class LineMessageServiceImpl implements LineMessageService {
         this.subdistrictRepository = subdistrictRepository;
         this.zipcodeRepository     = zipcodeRepository;
         this.userAddressRepository = userAddressRepository;
+        this.storeInfoService      = storeInfoService;
+        this.productRepository     = productRepository;
     }
+
+    // ─── Event Entry Point ────────────────────────────────────────────────────
 
     @Override
     public void handleEvent(JsonNode event) {
@@ -108,37 +130,61 @@ public class LineMessageServiceImpl implements LineMessageService {
         }
     }
 
+    // ─── User Resolution ──────────────────────────────────────────────────────
+
     private User resolveUser(String lineUserId) {
         if (lineUserId == null) return null;
 
-        return userRepository.findByLineUserId(lineUserId).orElseGet(() -> {
-            // ครั้งแรกที่ user นี้ส่งข้อความ → ดึงชื่อจาก Line แล้วบันทึก
-            String displayName = fetchLineDisplayName(lineUserId);
-            User newUser = User.builder()
-                    .name(displayName)
-                    .lineUserId(lineUserId)
-                    .build();
-            return userRepository.save(newUser);
-        });
+        return userRepository.findByLineUserId(lineUserId)
+                .map(existing -> {
+                    if (existing.getName() == null || existing.getName().equals("ผู้ใช้ไม่ระบุชื่อ")) {
+                        String displayName = fetchLineDisplayName(lineUserId);
+                        if (!displayName.equals("ผู้ใช้ไม่ระบุชื่อ")) {
+                            existing.setName(displayName);
+                            return userRepository.save(existing);
+                        }
+                    }
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    String displayName = fetchLineDisplayName(lineUserId);
+                    User newUser = User.builder()
+                            .name(displayName)
+                            .lineUserId(lineUserId)
+                            .build();
+                    return userRepository.save(newUser);
+                });
     }
 
+    @SuppressWarnings("unchecked")
     private String fetchLineDisplayName(String lineUserId) {
         try {
             String url = "https://api.line.me/v2/bot/profile/" + lineUserId;
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(lineConfig.getChannelToken());
             HttpEntity<Void> request = new HttpEntity<>(headers);
-            ResponseEntity<JsonNode> response = restTemplate.exchange(
-                    url, org.springframework.http.HttpMethod.GET, request, JsonNode.class);
-            return response.getBody().path("displayName").asText("ผู้ใช้ไม่ระบุชื่อ");
+            ResponseEntity<java.util.Map> response = restTemplate.exchange(
+                    url, org.springframework.http.HttpMethod.GET, request, java.util.Map.class);
+            String name = (String) response.getBody().get("displayName");
+            if (name == null || name.isBlank()) {
+                log.warn("[LINE Profile] displayName null/blank for userId={}", lineUserId);
+                return "ผู้ใช้ไม่ระบุชื่อ";
+            }
+            log.info("[LINE Profile] got name={} for userId={}", name, lineUserId);
+            return name;
         } catch (Exception e) {
-            log.warn("ดึงชื่อ Line profile ไม่ได้ lineUserId={} error={}", lineUserId, e.getMessage(), e);
+            log.warn("[LINE Profile] error lineUserId={} error={}", lineUserId, e.getMessage(), e);
             return "ผู้ใช้ไม่ระบุชื่อ";
         }
     }
 
+    // ─── Text Message Handler ─────────────────────────────────────────────────
+
     private void handleTextMessage(String replyToken, String text, String lineUserId, User user) {
-        // ถ้า user กำลังกรอกที่อยู่อยู่ → route ไปที่ address flow ก่อนเลย
+        if (lineUserId != null && phoneSessions.contains(lineUserId)) {
+            handlePhoneInput(replyToken, text, lineUserId, user);
+            return;
+        }
         if (lineUserId != null && addressSessions.containsKey(lineUserId)) {
             handleStreetInput(replyToken, text, lineUserId, user);
             return;
@@ -151,7 +197,6 @@ public class LineMessageServiceImpl implements LineMessageService {
             case "ชำระเงิน":
             case "สถานะสินค้า":
             case "จัดการที่อยู่":
-                // เมนูที่ต้องการ account — ต้องผูกบัญชีก่อน
                 if (user == null) {
                     replyMessage(replyToken,
                             "กรุณาผูกบัญชีก่อนใช้งานฟีเจอร์นี้ครับ\n\nพิมพ์ \"ผูกบัญชี\" แล้วตามด้วย email ของคุณ\nเช่น: ผูกบัญชี example@email.com");
@@ -160,7 +205,7 @@ public class LineMessageServiceImpl implements LineMessageService {
                 }
                 break;
             case "ติดต่อเรา":
-                replyMessage(replyToken, "📞 ติดต่อเรา\nโทร: 08X-XXX-XXXX\nอีเมล: store@example.com");
+                sendStoreContact(replyToken);
                 break;
             default:
                 if (text.startsWith("เพิ่มสินค้า ")) {
@@ -173,23 +218,14 @@ public class LineMessageServiceImpl implements LineMessageService {
 
     private void handleAuthenticatedMenu(String replyToken, String text, User user) {
         switch (text) {
-            case "ตระกร้าสินค้า":
-                sendCartFlex(replyToken, user);
-                break;
-            case "ชำระเงิน":
-                sendCheckoutSummary(replyToken, user);
-                break;
-            case "สถานะสินค้า":
-                sendOrderStatus(replyToken, user);
-                break;
-            case "จัดการที่อยู่":
-                sendAddressManagement(replyToken, user);
-                break;
+            case "ตระกร้าสินค้า":  sendCartFlex(replyToken, user);          break;
+            case "ชำระเงิน":        sendCheckoutSummary(replyToken, user);   break;
+            case "สถานะสินค้า":     sendOrderStatus(replyToken, user);       break;
+            case "จัดการที่อยู่":   sendAddressManagement(replyToken, user); break;
         }
     }
 
-
-    // ─── Postback ──────────────────────────────────────────────────────────────
+    // ─── Postback ─────────────────────────────────────────────────────────────
 
     private void handlePostback(String replyToken, String data, User user, String lineUserId) {
         Map<String, String> params = new HashMap<>();
@@ -214,7 +250,6 @@ public class LineMessageServiceImpl implements LineMessageService {
                     replyMessage(replyToken, "❌ เกิดข้อผิดพลาด กรุณาลองใหม่");
                 }
             }
-            // ─── Address flow ──────────────────────────────────────────────
             case "add_address"   -> sendRegionSelection(replyToken);
             case "select_region" -> sendProvinceSelection(replyToken,
                     Integer.parseInt(params.getOrDefault("id", "0")));
@@ -236,11 +271,17 @@ public class LineMessageServiceImpl implements LineMessageService {
             case "confirm_checkout"  -> handleConfirmCheckout(replyToken, user);
             case "cancel_checkout"   -> replyMessage(replyToken, "❌ ยกเลิกการสั่งซื้อแล้วครับ\n\nสินค้ายังอยู่ในตะกร้าของคุณ");
             case "show_qr"           -> handleShowQr(replyToken, params.getOrDefault("pi", ""), user);
-            default                  -> { /* ignore unknown actions */ }
+            case "edit_phone"        -> {
+                if (user == null) { replyMessage(replyToken, "⚠️ ไม่พบข้อมูลผู้ใช้"); return; }
+                phoneSessions.add(lineUserId);
+                String current = (user.getPhone() != null) ? "\n📱 เบอร์ปัจจุบัน: " + user.getPhone() : "";
+                replyMessage(replyToken, "📱 กรุณาพิมพ์เบอร์โทรศัพท์ของคุณ" + current + "\n\nพิมพ์ \"ยกเลิก\" เพื่อยกเลิก");
+            }
+            default -> { /* ignore unknown actions */ }
         }
     }
 
-    // ─── Show QR ───────────────────────────────────────────────────────────────
+    // ─── QR Code ──────────────────────────────────────────────────────────────
 
     private void handleShowQr(String replyToken, String paymentIntentId, User user) {
         if (paymentIntentId.isBlank()) {
@@ -250,20 +291,16 @@ public class LineMessageServiceImpl implements LineMessageService {
         try {
             String qrUrl = linePaymentService.getQrCodeUrl(paymentIntentId);
 
-            // QR หมดอายุ → สร้างใหม่อัตโนมัติ
             boolean isRenewed = false;
             if (qrUrl == null) {
                 qrUrl = linePaymentService.renewQrCode(paymentIntentId);
                 isRenewed = true;
             }
 
-            List<Map<String, Object>> messages = new ArrayList<>();
-
             Map<String, Object> imageMsg = new HashMap<>();
             imageMsg.put("type", "image");
             imageMsg.put("originalContentUrl", qrUrl);
             imageMsg.put("previewImageUrl", qrUrl);
-            messages.add(imageMsg);
 
             String caption = isRenewed
                     ? "🔄 QR Code หมดอายุ — สร้างใหม่ให้แล้วครับ!\n\n📱 สแกนเพื่อชำระเงินผ่าน PromptPay\n⏰ QR Code มีอายุ 24 ชั่วโมง"
@@ -272,9 +309,8 @@ public class LineMessageServiceImpl implements LineMessageService {
             Map<String, Object> textMsg = new HashMap<>();
             textMsg.put("type", "text");
             textMsg.put("text", caption);
-            messages.add(textMsg);
 
-            replyMessages(replyToken, messages);
+            replyMessages(replyToken, List.of(imageMsg, textMsg));
         } catch (WebException e) {
             replyMessage(replyToken, "❌ " + e.getMessage());
         } catch (Exception e) {
@@ -283,7 +319,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         }
     }
 
-    // ─── Checkout ──────────────────────────────────────────────────────────────
+    // ─── Checkout ─────────────────────────────────────────────────────────────
 
     private void sendCheckoutSummary(String replyToken, User user) {
         try {
@@ -293,7 +329,11 @@ public class LineMessageServiceImpl implements LineMessageService {
                 return;
             }
 
-            // ตรวจสอบที่อยู่
+            if (user.getPhone() == null || user.getPhone().isBlank()) {
+                replyMessage(replyToken, "⚠️ กรุณาเพิ่มเบอร์โทรศัพท์ก่อนชำระเงินครับ\n\nพิมพ์ \"จัดการที่อยู่\" แล้วกดปุ่ม \"เพิ่มเบอร์โทร\"");
+                return;
+            }
+
             List<UserAddress> addresses = userAddressRepository
                     .findByUserIdOrderByIsDefaultDescCreatedAtDesc(user.getId());
             String addressDisplay;
@@ -310,28 +350,26 @@ public class LineMessageServiceImpl implements LineMessageService {
 
             double total = items.stream().mapToDouble(CartItemDTO::getSubTotal).sum();
 
-            // ── Header ──
             Map<String, Object> headerText = new HashMap<>();
             headerText.put("type", "text");
             headerText.put("text", "🧾 สรุปรายการสั่งซื้อ");
             headerText.put("weight", "bold");
             headerText.put("size", "lg");
-            headerText.put("color", "#FFFFFF");
+            headerText.put("color", C_WHITE);
             Map<String, Object> header = new HashMap<>();
             header.put("type", "box");
             header.put("layout", "vertical");
-            header.put("backgroundColor", "#1A73E8");
+            header.put("backgroundColor", C_PRIMARY);
             header.put("paddingAll", "md");
             header.put("contents", List.of(headerText));
 
-            // ── Body: รายการสินค้า ──
             List<Object> bodyContents = new ArrayList<>();
             for (CartItemDTO item : items) {
                 Map<String, Object> itemLabel = new HashMap<>();
                 itemLabel.put("type", "text");
                 itemLabel.put("text", item.getProductName() + " x" + item.getQuantity());
                 itemLabel.put("size", "sm");
-                itemLabel.put("color", "#333333");
+                itemLabel.put("color", C_TEXT);
                 itemLabel.put("flex", 4);
                 itemLabel.put("wrap", true);
 
@@ -339,7 +377,7 @@ public class LineMessageServiceImpl implements LineMessageService {
                 itemPrice.put("type", "text");
                 itemPrice.put("text", String.format("฿%.0f", item.getSubTotal()));
                 itemPrice.put("size", "sm");
-                itemPrice.put("color", "#111111");
+                itemPrice.put("color", C_PRICE);
                 itemPrice.put("align", "end");
                 itemPrice.put("flex", 2);
 
@@ -351,18 +389,17 @@ public class LineMessageServiceImpl implements LineMessageService {
                 bodyContents.add(itemRow);
             }
 
-            // separator
             Map<String, Object> sep = new HashMap<>();
             sep.put("type", "separator");
             sep.put("margin", "md");
             bodyContents.add(sep);
 
-            // ยอดรวม
             Map<String, Object> totalLabel = new HashMap<>();
             totalLabel.put("type", "text");
             totalLabel.put("text", "ยอดรวมทั้งสิ้น");
             totalLabel.put("weight", "bold");
             totalLabel.put("size", "md");
+            totalLabel.put("color", C_TEXT);
             totalLabel.put("flex", 3);
 
             Map<String, Object> totalValue = new HashMap<>();
@@ -370,7 +407,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             totalValue.put("text", String.format("฿%.0f", total));
             totalValue.put("weight", "bold");
             totalValue.put("size", "md");
-            totalValue.put("color", "#e53e3e");
+            totalValue.put("color", C_PRICE);
             totalValue.put("align", "end");
             totalValue.put("flex", 2);
 
@@ -381,7 +418,6 @@ public class LineMessageServiceImpl implements LineMessageService {
             totalRow.put("contents", List.of(totalLabel, totalValue));
             bodyContents.add(totalRow);
 
-            // ที่อยู่จัดส่ง
             Map<String, Object> addrSep = new HashMap<>();
             addrSep.put("type", "separator");
             addrSep.put("margin", "md");
@@ -391,14 +427,14 @@ public class LineMessageServiceImpl implements LineMessageService {
             addrTitle.put("type", "text");
             addrTitle.put("text", "📍 ที่อยู่จัดส่ง");
             addrTitle.put("size", "xs");
-            addrTitle.put("color", "#888888");
+            addrTitle.put("color", C_MUTED);
             addrTitle.put("margin", "md");
 
             Map<String, Object> addrValue = new HashMap<>();
             addrValue.put("type", "text");
             addrValue.put("text", addressDisplay);
             addrValue.put("size", "sm");
-            addrValue.put("color", "#333333");
+            addrValue.put("color", C_SUBTEXT);
             addrValue.put("wrap", true);
             addrValue.put("margin", "xs");
 
@@ -409,9 +445,9 @@ public class LineMessageServiceImpl implements LineMessageService {
             body.put("type", "box");
             body.put("layout", "vertical");
             body.put("paddingAll", "md");
+            body.put("backgroundColor", C_BG);
             body.put("contents", bodyContents);
 
-            // ── Footer: ยืนยัน / ยกเลิก ──
             Map<String, Object> confirmAction = new HashMap<>();
             confirmAction.put("type", "postback");
             confirmAction.put("label", "✅ ยืนยันการสั่งซื้อ");
@@ -421,7 +457,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             Map<String, Object> confirmBtn = new HashMap<>();
             confirmBtn.put("type", "button");
             confirmBtn.put("style", "primary");
-            confirmBtn.put("color", "#06C755");
+            confirmBtn.put("color", C_PRIMARY);
             confirmBtn.put("action", confirmAction);
 
             Map<String, Object> cancelAction = new HashMap<>();
@@ -439,6 +475,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             footer.put("type", "box");
             footer.put("layout", "vertical");
             footer.put("spacing", "sm");
+            footer.put("backgroundColor", C_BG);
             footer.put("contents", addresses.isEmpty() ? List.of(cancelBtn) : List.of(confirmBtn, cancelBtn));
 
             Map<String, Object> bubble = new HashMap<>();
@@ -473,13 +510,11 @@ public class LineMessageServiceImpl implements LineMessageService {
     }
 
     private void pushQrAndConfirmation(String lineUserId, LinePaymentService.LineCheckoutResult result) {
-        // 1. ส่ง QR code image
         Map<String, Object> imageMsg = new HashMap<>();
         imageMsg.put("type", "image");
         imageMsg.put("originalContentUrl", result.qrCodeUrl());
         imageMsg.put("previewImageUrl", result.qrCodeUrl());
 
-        // 2. ส่งข้อความอธิบาย
         String text = "✅ สร้างคำสั่งซื้อสำเร็จ!\n\n"
                 + "📋 หมายเลขออเดอร์:\n" + result.orderNo() + "\n\n"
                 + String.format("💰 ยอดชำระ: ฿%.0f\n\n", result.totalAmount())
@@ -514,7 +549,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         }
     }
 
-    // ─── Cart Flex ─────────────────────────────────────────────────────────────
+    // ─── Cart Flex ────────────────────────────────────────────────────────────
 
     private void sendCartFlex(String replyToken, User user) {
         try {
@@ -527,21 +562,20 @@ public class LineMessageServiceImpl implements LineMessageService {
 
             double total = items.stream().mapToDouble(CartItemDTO::getSubTotal).sum();
 
-            // ── Header ──
             Map<String, Object> headerText = new HashMap<>();
             headerText.put("type", "text");
-            headerText.put("text", "ตะกร้าสินค้าของคุณ");
+            headerText.put("text", "🛒 ตะกร้าสินค้าของคุณ");
             headerText.put("weight", "bold");
             headerText.put("size", "lg");
-            headerText.put("color", "#111111");
+            headerText.put("color", C_WHITE);
 
             Map<String, Object> header = new HashMap<>();
             header.put("type", "box");
             header.put("layout", "vertical");
-            header.put("paddingBottom", "none");
+            header.put("backgroundColor", C_PRIMARY);
+            header.put("paddingAll", "md");
             header.put("contents", List.of(headerText));
 
-            // ── Body: separator + item rows ──
             List<Object> bodyContents = new ArrayList<>();
 
             Map<String, Object> topSep = new HashMap<>();
@@ -552,31 +586,31 @@ public class LineMessageServiceImpl implements LineMessageService {
             for (CartItemDTO item : items) {
                 bodyContents.add(buildCartItemRow(item));
 
-                Map<String, Object> sep = new HashMap<>();
-                sep.put("type", "separator");
-                sep.put("margin", "lg");
-                bodyContents.add(sep);
+                Map<String, Object> itemSep = new HashMap<>();
+                itemSep.put("type", "separator");
+                itemSep.put("margin", "lg");
+                bodyContents.add(itemSep);
             }
 
             Map<String, Object> body = new HashMap<>();
             body.put("type", "box");
             body.put("layout", "vertical");
+            body.put("backgroundColor", C_BG);
             body.put("contents", bodyContents);
 
-            // ── Footer: ยอดรวม ──
             Map<String, Object> totalLabel = new HashMap<>();
             totalLabel.put("type", "text");
             totalLabel.put("text", "ยอดรวมทั้งสิ้น");
             totalLabel.put("size", "sm");
-            totalLabel.put("color", "#555555");
+            totalLabel.put("color", C_MUTED);
 
             Map<String, Object> totalValue = new HashMap<>();
             totalValue.put("type", "text");
             totalValue.put("text", String.format("฿%.0f", total));
-            totalValue.put("size", "md");
+            totalValue.put("size", "lg");
             totalValue.put("align", "end");
             totalValue.put("weight", "bold");
-            totalValue.put("color", "#111111");
+            totalValue.put("color", C_PRICE);
 
             Map<String, Object> totalRow = new HashMap<>();
             totalRow.put("type", "box");
@@ -587,9 +621,9 @@ public class LineMessageServiceImpl implements LineMessageService {
             footer.put("type", "box");
             footer.put("layout", "vertical");
             footer.put("spacing", "sm");
+            footer.put("backgroundColor", C_BG);
             footer.put("contents", List.of(totalRow));
 
-            // ── Bubble ──
             Map<String, Object> bubble = new HashMap<>();
             bubble.put("type", "bubble");
             bubble.put("size", "mega");
@@ -600,32 +634,31 @@ public class LineMessageServiceImpl implements LineMessageService {
             replyFlexMessage(replyToken, "🛒 ตะกร้าสินค้า", bubble);
         } catch (Exception e) {
             log.error("[sendCartFlex] error: {}", e.getMessage(), e);
-            replyMessage(replyToken, " ไม่สามารถดึงตะกร้าสินค้าได้");
+            replyMessage(replyToken, "ไม่สามารถดึงตะกร้าสินค้าได้");
         }
     }
 
     private Map<String, Object> buildCartItemRow(CartItemDTO item) {
-        // รูปสินค้า
         Map<String, Object> image = new HashMap<>();
         image.put("type", "image");
-        image.put("url", item.getImageUrl() != null ? item.getImageUrl() : "https://via.placeholder.com/100");
+        image.put("url", item.getImageUrl() != null ? item.getImageUrl() : PLACEHOLDER_IMAGE);
         image.put("size", "sm");
         image.put("aspectMode", "cover");
         image.put("aspectRatio", "1:1");
 
-        // ชื่อ + ราคา
         Map<String, Object> nameText = new HashMap<>();
         nameText.put("type", "text");
         nameText.put("text", item.getProductName());
         nameText.put("weight", "bold");
         nameText.put("size", "sm");
+        nameText.put("color", C_TEXT);
         nameText.put("wrap", true);
 
         Map<String, Object> priceText = new HashMap<>();
         priceText.put("type", "text");
         priceText.put("text", String.format("฿%.0f", item.getPrice()));
         priceText.put("size", "sm");
-        priceText.put("color", "#e53e3e");
+        priceText.put("color", C_PRICE);
         priceText.put("weight", "bold");
         priceText.put("margin", "xs");
 
@@ -636,10 +669,9 @@ public class LineMessageServiceImpl implements LineMessageService {
         infoBox.put("flex", 3);
         infoBox.put("contents", List.of(nameText, priceText));
 
-        // ปุ่ม -
         Map<String, Object> decAction = new HashMap<>();
         decAction.put("type", "postback");
-        decAction.put("label", "-");
+        decAction.put("label", "−");
         decAction.put("data", "action=decrease&productId=" + item.getProductId());
 
         Map<String, Object> decBtn = new HashMap<>();
@@ -648,18 +680,16 @@ public class LineMessageServiceImpl implements LineMessageService {
         decBtn.put("style", "secondary");
         decBtn.put("height", "sm");
         decBtn.put("flex", 1);
-        decBtn.put("color", "#F6FF00");
 
-        // จำนวน
         Map<String, Object> qtyText = new HashMap<>();
         qtyText.put("type", "text");
         qtyText.put("text", String.valueOf(item.getQuantity()));
         qtyText.put("align", "center");
         qtyText.put("weight", "bold");
         qtyText.put("size", "sm");
+        qtyText.put("color", C_TEXT);
         qtyText.put("flex", 1);
 
-        // ปุ่ม +
         Map<String, Object> incAction = new HashMap<>();
         incAction.put("type", "postback");
         incAction.put("label", "+");
@@ -668,12 +698,11 @@ public class LineMessageServiceImpl implements LineMessageService {
         Map<String, Object> incBtn = new HashMap<>();
         incBtn.put("type", "button");
         incBtn.put("action", incAction);
-        incBtn.put("style", "secondary");
+        incBtn.put("style", "primary");
+        incBtn.put("color", C_PRIMARY);
         incBtn.put("height", "sm");
         incBtn.put("flex", 1);
-        incBtn.put("color", "#00FF4C");
 
-        // ปุ่ม ลบ
         Map<String, Object> delAction = new HashMap<>();
         delAction.put("type", "postback");
         delAction.put("label", "ลบ");
@@ -682,9 +711,10 @@ public class LineMessageServiceImpl implements LineMessageService {
         Map<String, Object> delBtn = new HashMap<>();
         delBtn.put("type", "button");
         delBtn.put("action", delAction);
-        delBtn.put("style", "secondary");
+        delBtn.put("style", "primary");
+        delBtn.put("color", C_DANGER);
         delBtn.put("height", "sm");
-        delBtn.put("color", "#FF0000");
+        delBtn.put("flex", 1);
 
         Map<String, Object> controlBox = new HashMap<>();
         controlBox.put("type", "box");
@@ -704,26 +734,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         return row;
     }
 
-    private void replyFlexMessage(String replyToken, String altText, Map<String, Object> contents) {
-        String url = "https://api.line.me/v2/bot/message/reply";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(lineConfig.getChannelToken());
-
-        Map<String, Object> flexMessage = new HashMap<>();
-        flexMessage.put("type", "flex");
-        flexMessage.put("altText", altText);
-        flexMessage.put("contents", contents);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("replyToken", replyToken);
-        body.put("messages", List.of(flexMessage));
-
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        restTemplate.postForEntity(url, request, String.class);
-    }
-
-    // ─── Add to Cart ───────────────────────────────────────────────────────────
+    // ─── Add to Cart ──────────────────────────────────────────────────────────
 
     private void handleAddToCart(String replyToken, String productIdStr, User user) {
         if (user == null) {
@@ -734,18 +745,18 @@ public class LineMessageServiceImpl implements LineMessageService {
             Long productId = Long.parseLong(productIdStr);
             CartItemRequestDTO request = new CartItemRequestDTO(productId, 1);
             cartService.addProductToCartByUserId(user.getId(), request);
-            replyMessage(replyToken, " เพิ่มสินค้าลงตะกร้าแล้ว!\nพิมพ์ \"ตะกร้าสินค้า\" เพื่อดูรายการครับ");
+            replyMessage(replyToken, "✅ เพิ่มสินค้าลงตะกร้าแล้ว!\nพิมพ์ \"ตะกร้าสินค้า\" เพื่อดูรายการครับ");
         } catch (NumberFormatException e) {
-            replyMessage(replyToken, " ไม่พบสินค้าที่เลือก");
+            replyMessage(replyToken, "ไม่พบสินค้าที่เลือก");
         } catch (WebException e) {
-            replyMessage(replyToken,  e.getMessage());
+            replyMessage(replyToken, e.getMessage());
         } catch (Exception e) {
             log.error("[handleAddToCart] error: {}", e.getMessage(), e);
-            replyMessage(replyToken, " เกิดข้อผิดพลาด กรุณาลองใหม่");
+            replyMessage(replyToken, "เกิดข้อผิดพลาด กรุณาลองใหม่");
         }
     }
 
-    // ─── Order Status ──────────────────────────────────────────────────────────
+    // ─── Order Status ─────────────────────────────────────────────────────────
 
     private void sendOrderStatus(String replyToken, User user) {
         try {
@@ -756,7 +767,6 @@ public class LineMessageServiceImpl implements LineMessageService {
                 return;
             }
 
-            // กรอง COMPLETED / CANCELLED ออก แล้วเรียงใหม่→เก่า แสดงล่าสุด 5 รายการ
             List<Order> recent = orders.stream()
                     .filter(o -> o.getStatus() != OrderStatusName.COMPLETED
                               && o.getStatus() != OrderStatusName.CANCELLED)
@@ -786,32 +796,30 @@ public class LineMessageServiceImpl implements LineMessageService {
     }
 
     private Map<String, Object> buildOrderBubble(Order order) {
-        // สีและ emoji ตาม status
         String statusColor;
         String statusEmoji;
         switch (order.getStatus()) {
-            case PENDING    -> { statusColor = "#FFA500"; statusEmoji = "⏳ รอชำระเงิน";   }
-            case PROCESSING -> { statusColor = "#1A73E8"; statusEmoji = "🔄 กำลังดำเนินการ"; }
-            case RECEIVE    -> { statusColor = "#9C27B0"; statusEmoji = "🚚 จัดส่งแล้ว";    }
-            case COMPLETED  -> { statusColor = "#06C755"; statusEmoji = "✅ สำเร็จ";         }
-            case CANCELLED  -> { statusColor = "#9E9E9E"; statusEmoji = "❌ ยกเลิกแล้ว";    }
-            case REFUND     -> { statusColor = "#F44336"; statusEmoji = "💸 คืนเงินแล้ว";   }
-            default         -> { statusColor = "#9E9E9E"; statusEmoji = "❓ ไม่ทราบสถานะ";  }
+            case PENDING    -> { statusColor = "#8B6914"; statusEmoji = "⏳ รอชำระเงิน";     }
+            case PROCESSING -> { statusColor = "#2C5282"; statusEmoji = "🔄 กำลังดำเนินการ"; }
+            case RECEIVED   -> { statusColor = "#553C7B"; statusEmoji = "🚚 จัดส่งแล้ว";     }
+            case COMPLETED  -> { statusColor = C_PRIMARY; statusEmoji = "✅ สำเร็จ";           }
+            case CANCELLED  -> { statusColor = "#6B5B3E"; statusEmoji = "❌ ยกเลิกแล้ว";     }
+            case REFUNDED   -> { statusColor = C_DANGER;  statusEmoji = "💸 คืนเงินแล้ว";    }
+            default         -> { statusColor = C_MUTED;   statusEmoji = "❓ ไม่ทราบสถานะ";   }
         }
 
-        // ── Header ──
         Map<String, Object> statusText = new HashMap<>();
         statusText.put("type", "text");
         statusText.put("text", statusEmoji);
         statusText.put("weight", "bold");
         statusText.put("size", "md");
-        statusText.put("color", "#FFFFFF");
+        statusText.put("color", C_WHITE);
 
         Map<String, Object> dateText = new HashMap<>();
         dateText.put("type", "text");
         dateText.put("text", order.getCreatedAt().toLocalDate().toString());
         dateText.put("size", "xs");
-        dateText.put("color", "#FFFFFF");
+        dateText.put("color", "#E8DCC8");
         dateText.put("margin", "xs");
 
         Map<String, Object> header = new HashMap<>();
@@ -821,39 +829,34 @@ public class LineMessageServiceImpl implements LineMessageService {
         header.put("paddingAll", "md");
         header.put("contents", List.of(statusText, dateText));
 
-        // ── Body: หมายเลข order + รายการสินค้า ──
         List<Object> bodyContents = new ArrayList<>();
 
-        // หมายเลข order
         Map<String, Object> orderNoLabel = new HashMap<>();
         orderNoLabel.put("type", "text");
         orderNoLabel.put("text", "หมายเลขออเดอร์");
         orderNoLabel.put("size", "xs");
-        orderNoLabel.put("color", "#888888");
+        orderNoLabel.put("color", C_MUTED);
 
-        Map<String, Object> orderNoValue = new HashMap<>();
-        orderNoValue.put("type", "text");
-        // แสดงแค่ 8 ตัวแรกของ UUID ให้อ่านง่าย
         String shortOrderNo = order.getOrderNo() != null
                 ? order.getOrderNo().substring(0, 8).toUpperCase() + "..."
                 : "-";
+        Map<String, Object> orderNoValue = new HashMap<>();
+        orderNoValue.put("type", "text");
         orderNoValue.put("text", shortOrderNo);
         orderNoValue.put("size", "sm");
-        orderNoValue.put("color", "#111111");
+        orderNoValue.put("color", C_TEXT);
         orderNoValue.put("weight", "bold");
         orderNoValue.put("margin", "xs");
 
         bodyContents.add(orderNoLabel);
         bodyContents.add(orderNoValue);
 
-        // separator
         Map<String, Object> sep = new HashMap<>();
         sep.put("type", "separator");
         sep.put("margin", "md");
         bodyContents.add(sep);
 
-        // รายการสินค้า
-        List<OrderItem> items = order.getOrderItems();
+        List<OrderItem> items = new ArrayList<>(order.getOrderItems());
         double total = 0;
         for (OrderItem item : items) {
             double subTotal = item.getProduct().getPrice() * item.getQuantity();
@@ -863,7 +866,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             itemName.put("type", "text");
             itemName.put("text", item.getProduct().getName() + " x" + item.getQuantity());
             itemName.put("size", "sm");
-            itemName.put("color", "#333333");
+            itemName.put("color", C_SUBTEXT);
             itemName.put("flex", 4);
             itemName.put("wrap", true);
 
@@ -871,7 +874,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             itemPrice.put("type", "text");
             itemPrice.put("text", String.format("฿%.0f", subTotal));
             itemPrice.put("size", "sm");
-            itemPrice.put("color", "#111111");
+            itemPrice.put("color", C_TEXT);
             itemPrice.put("align", "end");
             itemPrice.put("flex", 2);
 
@@ -883,7 +886,6 @@ public class LineMessageServiceImpl implements LineMessageService {
             bodyContents.add(itemRow);
         }
 
-        // ยอดรวม
         Map<String, Object> totalSep = new HashMap<>();
         totalSep.put("type", "separator");
         totalSep.put("margin", "md");
@@ -894,6 +896,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         totalLabel.put("text", "ยอดรวม");
         totalLabel.put("weight", "bold");
         totalLabel.put("size", "sm");
+        totalLabel.put("color", C_TEXT);
         totalLabel.put("flex", 3);
 
         Map<String, Object> totalValue = new HashMap<>();
@@ -901,7 +904,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         totalValue.put("text", String.format("฿%.0f", total));
         totalValue.put("weight", "bold");
         totalValue.put("size", "sm");
-        totalValue.put("color", "#e53e3e");
+        totalValue.put("color", C_PRICE);
         totalValue.put("align", "end");
         totalValue.put("flex", 2);
 
@@ -916,6 +919,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         body.put("type", "box");
         body.put("layout", "vertical");
         body.put("paddingAll", "md");
+        body.put("backgroundColor", C_BG);
         body.put("contents", bodyContents);
 
         Map<String, Object> bubble = new HashMap<>();
@@ -924,7 +928,6 @@ public class LineMessageServiceImpl implements LineMessageService {
         bubble.put("header", header);
         bubble.put("body", body);
 
-        // เพิ่มปุ่ม "ดู QR Code" เฉพาะ PENDING
         if (order.getStatus() == OrderStatusName.PENDING
                 && order.getStripePaymentIntent() != null) {
             Map<String, Object> qrAction = new HashMap<>();
@@ -936,12 +939,13 @@ public class LineMessageServiceImpl implements LineMessageService {
             Map<String, Object> qrBtn = new HashMap<>();
             qrBtn.put("type", "button");
             qrBtn.put("style", "primary");
-            qrBtn.put("color", "#FFA500");
+            qrBtn.put("color", C_GOLD);
             qrBtn.put("action", qrAction);
 
             Map<String, Object> footer = new HashMap<>();
             footer.put("type", "box");
             footer.put("layout", "vertical");
+            footer.put("backgroundColor", C_BG);
             footer.put("contents", List.of(qrBtn));
             bubble.put("footer", footer);
         }
@@ -949,20 +953,21 @@ public class LineMessageServiceImpl implements LineMessageService {
         return bubble;
     }
 
-    // ─── Address Management ────────────────────────────────────────────────────
+    // ─── Address Management ───────────────────────────────────────────────────
 
     private void sendAddressManagement(String replyToken, User user) {
         List<UserAddress> addresses = userAddressRepository
                 .findByUserIdOrderByIsDefaultDescCreatedAtDesc(user.getId());
 
         boolean hasAddress = !addresses.isEmpty();
+        boolean hasPhone   = user.getPhone() != null && !user.getPhone().isBlank();
         List<Object> bodyContents = new ArrayList<>();
 
         if (!hasAddress) {
             Map<String, Object> empty = new HashMap<>();
             empty.put("type", "text");
             empty.put("text", "ยังไม่มีที่อยู่จัดส่ง\nกรุณาเพิ่มที่อยู่ของคุณ");
-            empty.put("color", "#888888");
+            empty.put("color", C_MUTED);
             empty.put("size", "sm");
             empty.put("wrap", true);
             bodyContents.add(empty);
@@ -970,7 +975,7 @@ public class LineMessageServiceImpl implements LineMessageService {
             UserAddress addr = addresses.get(0);
             Zipcode zip = addr.getZipcode();
 
-            String street    = addr.getStreetAddress() != null ? addr.getStreetAddress() : "-";
+            String street      = addr.getStreetAddress() != null ? addr.getStreetAddress() : "-";
             String subdistrict = (zip != null && zip.getSubdistrict() != null) ? zip.getSubdistrict().getName() : "-";
             String district    = (zip != null && zip.getDistrict()    != null) ? zip.getDistrict().getName()    : "-";
             String province    = (zip != null && zip.getProvince()    != null) ? zip.getProvince().getName()    : "-";
@@ -983,17 +988,22 @@ public class LineMessageServiceImpl implements LineMessageService {
             bodyContents.add(addressRow("📮 รหัสไปรษณีย์", zipcodeStr));
         }
 
-        // ── Header ──
+        Map<String, Object> phoneSep = new HashMap<>();
+        phoneSep.put("type", "separator");
+        phoneSep.put("margin", "md");
+        bodyContents.add(phoneSep);
+        bodyContents.add(addressRow("📱 เบอร์โทรศัพท์", hasPhone ? user.getPhone() : "⚠️ ยังไม่ได้ระบุ"));
+
         Map<String, Object> headerText = new HashMap<>();
         headerText.put("type", "text");
         headerText.put("text", "📍 ที่อยู่จัดส่งของคุณ");
         headerText.put("weight", "bold");
         headerText.put("size", "lg");
-        headerText.put("color", "#FFFFFF");
+        headerText.put("color", C_WHITE);
         Map<String, Object> header = new HashMap<>();
         header.put("type", "box");
         header.put("layout", "vertical");
-        header.put("backgroundColor", "#06C755");
+        header.put("backgroundColor", C_PRIMARY);
         header.put("paddingAll", "md");
         header.put("contents", List.of(headerText));
 
@@ -1002,25 +1012,41 @@ public class LineMessageServiceImpl implements LineMessageService {
         body.put("layout", "vertical");
         body.put("spacing", "sm");
         body.put("paddingAll", "md");
+        body.put("backgroundColor", C_BG);
         body.put("contents", bodyContents);
 
-        // ── Footer: เพิ่ม หรือ แก้ไข ──
-        String btnLabel   = hasAddress ? "✏️ แก้ไขที่อยู่"   : "➕ เพิ่มที่อยู่";
-        String btnDisplay = hasAddress ? "แก้ไขที่อยู่"       : "เพิ่มที่อยู่";
-        Map<String, Object> btnAction = new HashMap<>();
-        btnAction.put("type", "postback");
-        btnAction.put("label", btnLabel);
-        btnAction.put("data", "action=add_address");
-        btnAction.put("displayText", btnDisplay);
-        Map<String, Object> btn = new HashMap<>();
-        btn.put("type", "button");
-        btn.put("style", "primary");
-        btn.put("color", "#06C755");
-        btn.put("action", btnAction);
+        String addrLabel   = hasAddress ? "✏️ แก้ไขที่อยู่" : "➕ เพิ่มที่อยู่";
+        String addrDisplay = hasAddress ? "แก้ไขที่อยู่"     : "เพิ่มที่อยู่";
+        Map<String, Object> addrAction = new HashMap<>();
+        addrAction.put("type", "postback");
+        addrAction.put("label", addrLabel);
+        addrAction.put("data", "action=add_address");
+        addrAction.put("displayText", addrDisplay);
+        Map<String, Object> addrBtn = new HashMap<>();
+        addrBtn.put("type", "button");
+        addrBtn.put("style", "primary");
+        addrBtn.put("color", C_PRIMARY);
+        addrBtn.put("action", addrAction);
+
+        String phoneLabel   = hasPhone ? "✏️ แก้ไขเบอร์โทร" : "➕ เพิ่มเบอร์โทร";
+        String phoneDisplay = hasPhone ? "แก้ไขเบอร์โทร"     : "เพิ่มเบอร์โทร";
+        Map<String, Object> phoneAction = new HashMap<>();
+        phoneAction.put("type", "postback");
+        phoneAction.put("label", phoneLabel);
+        phoneAction.put("data", "action=edit_phone");
+        phoneAction.put("displayText", phoneDisplay);
+        Map<String, Object> phoneBtn = new HashMap<>();
+        phoneBtn.put("type", "button");
+        phoneBtn.put("style", "primary");
+        phoneBtn.put("color", C_GOLD);
+        phoneBtn.put("action", phoneAction);
+
         Map<String, Object> footer = new HashMap<>();
         footer.put("type", "box");
         footer.put("layout", "vertical");
-        footer.put("contents", List.of(btn));
+        footer.put("spacing", "sm");
+        footer.put("backgroundColor", C_BG);
+        footer.put("contents", List.of(addrBtn, phoneBtn));
 
         Map<String, Object> bubble = new HashMap<>();
         bubble.put("type", "bubble");
@@ -1031,20 +1057,19 @@ public class LineMessageServiceImpl implements LineMessageService {
         replyFlexMessage(replyToken, "📍 ที่อยู่จัดส่ง", bubble);
     }
 
-    /** สร้าง row แสดงข้อมูลที่อยู่ (label: value) */
     private Map<String, Object> addressRow(String label, String value) {
         Map<String, Object> labelText = new HashMap<>();
         labelText.put("type", "text");
         labelText.put("text", label);
         labelText.put("size", "xs");
-        labelText.put("color", "#888888");
+        labelText.put("color", C_MUTED);
         labelText.put("flex", 3);
 
         Map<String, Object> valueText = new HashMap<>();
         valueText.put("type", "text");
         valueText.put("text", value);
         valueText.put("size", "sm");
-        valueText.put("color", "#111111");
+        valueText.put("color", C_TEXT);
         valueText.put("flex", 5);
         valueText.put("wrap", true);
 
@@ -1055,6 +1080,8 @@ public class LineMessageServiceImpl implements LineMessageService {
         row.put("contents", List.of(labelText, valueText));
         return row;
     }
+
+    // ─── Address Flow ─────────────────────────────────────────────────────────
 
     private void sendRegionSelection(String replyToken) {
         List<Geography> regions = geographyRepository.findAll();
@@ -1146,12 +1173,10 @@ public class LineMessageServiceImpl implements LineMessageService {
             UserAddress address;
             boolean isEdit = !existing.isEmpty();
             if (isEdit) {
-                // อัปเดตที่อยู่เดิม (มีแค่ 1 ที่อยู่ต่อ user)
                 address = existing.get(0);
                 address.setStreetAddress(text);
                 address.setZipcode(zipcode);
             } else {
-                // สร้างใหม่ครั้งแรก
                 address = UserAddress.builder()
                         .user(user)
                         .streetAddress(text)
@@ -1179,7 +1204,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         }
     }
 
-    // ─── Selection Carousel Builder ────────────────────────────────────────────
+    // ─── Selection Carousel Builder ───────────────────────────────────────────
 
     private Map<String, Object> buildSelectionCarousel(
             String title, String subtitle,
@@ -1208,18 +1233,18 @@ public class LineMessageServiceImpl implements LineMessageService {
         titleText.put("text", title);
         titleText.put("weight", "bold");
         titleText.put("size", "lg");
-        titleText.put("color", "#FFFFFF");
+        titleText.put("color", C_WHITE);
         titleText.put("wrap", true);
         Map<String, Object> subText = new HashMap<>();
         subText.put("type", "text");
         subText.put("text", subtitle);
         subText.put("size", "xs");
-        subText.put("color", "#E0FFE0");
+        subText.put("color", "#C8DDB0");
         subText.put("margin", "xs");
         Map<String, Object> header = new HashMap<>();
         header.put("type", "box");
         header.put("layout", "vertical");
-        header.put("backgroundColor", "#06C755");
+        header.put("backgroundColor", C_PRIMARY);
         header.put("paddingAll", "md");
         header.put("contents", List.of(titleText, subText));
 
@@ -1234,6 +1259,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         body.put("type", "box");
         body.put("layout", "horizontal");
         body.put("spacing", "md");
+        body.put("backgroundColor", C_BG);
         body.put("contents", columns);
 
         Map<String, Object> bubble = new HashMap<>();
@@ -1252,11 +1278,12 @@ public class LineMessageServiceImpl implements LineMessageService {
             backBtn.put("type", "button");
             backBtn.put("style", "link");
             backBtn.put("height", "sm");
-            backBtn.put("color", "#666666");
+            backBtn.put("color", C_SUBTEXT);
             backBtn.put("action", backAction);
             Map<String, Object> footer = new HashMap<>();
             footer.put("type", "box");
             footer.put("layout", "vertical");
+            footer.put("backgroundColor", C_BG);
             footer.put("contents", List.of(backBtn));
             bubble.put("footer", footer);
         }
@@ -1287,19 +1314,23 @@ public class LineMessageServiceImpl implements LineMessageService {
         return col;
     }
 
-    // ─── Flex Message: สินค้าทั้งหมด ──────────────────────────────────────────
+    // ─── Product Flex ─────────────────────────────────────────────────────────
 
     private void sendProductsFlex(String replyToken) {
         try {
             ProductWithCategoryDTO products = productService.getProductsWithCategory();
 
-            // แต่ละ category เป็น 1 message (carousel) — Line รับได้สูงสุด 5 messages
+            Map<Long, Integer> stockMap = productRepository.findAll().stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            com.sm.jeyz9.storemateapi.models.Product::getId,
+                            p -> p.getStock_quantity() != null ? p.getStock_quantity() : 0));
+
             List<Map<String, Object>> messages = new ArrayList<>();
 
-            buildCategoryMessage(messages, "🎁 โปรโมชัน", products.getPromotion());
-            buildCategoryMessage(messages, "🧼 สบู่", products.getSoap());
-            buildCategoryMessage(messages, "🥤 เครื่องดื่ม", products.getDrinks());
-            buildCategoryMessage(messages, "💆 แชมพู", products.getShampoo());
+            buildCategoryMessage(messages, "🎁 โปรโมชัน", products.getPromotion(), stockMap);
+            buildCategoryMessage(messages, "🧼 สบู่",       products.getSoap(),      stockMap);
+            buildCategoryMessage(messages, "🥤 เครื่องดื่ม", products.getDrinks(),   stockMap);
+            buildCategoryMessage(messages, "💆 แชมพู",      products.getShampoo(),   stockMap);
 
             if (messages.isEmpty()) {
                 replyMessage(replyToken, "ยังไม่มีสินค้าในขณะนี้");
@@ -1319,12 +1350,19 @@ public class LineMessageServiceImpl implements LineMessageService {
 
     private void buildCategoryMessage(List<Map<String, Object>> messages,
                                       String categoryLabel,
-                                      List<ProductDTO> items) {
+                                      List<ProductDTO> items,
+                                      Map<Long, Integer> stockMap) {
         if (items == null || items.isEmpty()) return;
 
-        // แต่ละสินค้าเป็น bubble ใน carousel ของ category นั้น
+        List<ProductDTO> available = items.stream()
+                .filter(p -> "ACTIVE".equalsIgnoreCase(p.getProductStatus()))
+                .filter(p -> stockMap.getOrDefault(p.getId(), 0) > 0)
+                .toList();
+
+        if (available.isEmpty()) return;
+
         List<Map<String, Object>> bubbles = new ArrayList<>();
-        for (ProductDTO p : items) {
+        for (ProductDTO p : available) {
             bubbles.add(buildProductBubble(p));
         }
 
@@ -1340,96 +1378,87 @@ public class LineMessageServiceImpl implements LineMessageService {
         messages.add(flexMessage);
     }
 
+    private static final String PLACEHOLDER_IMAGE = "https://placehold.co/600x390/F5ECD7/9E8A6F/png?text=No+Image";
+
     private Map<String, Object> buildProductBubble(ProductDTO p) {
-        // ── Hero ──────────────────────────────────────────────────────────────
-        Map<String, Object> heroAction = new HashMap<>();
-        heroAction.put("type", "uri");
-        heroAction.put("uri", "https://line.me/");
+        String imageUrl = (p.getImageUrl() != null && !p.getImageUrl().isBlank())
+                ? p.getImageUrl()
+                : PLACEHOLDER_IMAGE;
 
         Map<String, Object> hero = new HashMap<>();
         hero.put("type", "image");
-        hero.put("url", p.getImageUrl());
+        hero.put("url", imageUrl);
         hero.put("size", "full");
         hero.put("aspectRatio", "20:13");
         hero.put("aspectMode", "cover");
-        hero.put("action", heroAction);
 
-        // ── Body ──────────────────────────────────────────────────────────────
-        // ชื่อสินค้า
         Map<String, Object> nameText = new HashMap<>();
         nameText.put("type", "text");
         nameText.put("text", p.getProductName());
-        nameText.put("size", "xl");
+        nameText.put("size", "lg");
         nameText.put("weight", "bold");
+        nameText.put("color", C_TEXT);
         nameText.put("wrap", true);
-
-        // row ราคา: icon + ราคา + หมวดหมู่
 
         Map<String, Object> priceText = new HashMap<>();
         priceText.put("type", "text");
         priceText.put("text", String.format("฿%.0f", p.getPrice()));
         priceText.put("weight", "bold");
-        priceText.put("margin", "sm");
+        priceText.put("size", "xl");
+        priceText.put("color", C_PRICE);
         priceText.put("flex", 0);
 
         Map<String, Object> categoryText = new HashMap<>();
         categoryText.put("type", "text");
         categoryText.put("text", p.getCategoryName() != null ? p.getCategoryName() : "");
-        categoryText.put("size", "sm");
+        categoryText.put("size", "xs");
         categoryText.put("align", "end");
-        categoryText.put("color", "#aaaaaa");
+        categoryText.put("color", C_MUTED);
 
         Map<String, Object> priceRow = new HashMap<>();
         priceRow.put("type", "box");
         priceRow.put("layout", "baseline");
-        priceRow.put("contents", List.of( priceText, categoryText));
+        priceRow.put("contents", List.of(priceText, categoryText));
 
-
-        // inner box รวม 2 row
         Map<String, Object> infoBox = new HashMap<>();
         infoBox.put("type", "box");
         infoBox.put("layout", "vertical");
         infoBox.put("spacing", "sm");
         infoBox.put("contents", List.of(priceRow));
 
-        // description
         Map<String, Object> descText = new HashMap<>();
         descText.put("type", "text");
         descText.put("text", p.getDescription() != null ? p.getDescription() : "");
         descText.put("wrap", true);
-        descText.put("color", "#aaaaaa");
-        descText.put("size", "xxs");
-
-        Map<String, Object> bodyAction = new HashMap<>();
-        bodyAction.put("type", "uri");
-        bodyAction.put("uri", "https://line.me/");
+        descText.put("color", C_MUTED);
+        descText.put("size", "xs");
 
         Map<String, Object> body = new HashMap<>();
         body.put("type", "box");
         body.put("layout", "vertical");
-        body.put("spacing", "md");
-        body.put("action", bodyAction);
+        body.put("spacing", "sm");
+        body.put("paddingAll", "md");
+        body.put("backgroundColor", C_BG);
         body.put("contents", List.of(nameText, infoBox, descText));
 
-        // ── Footer ────────────────────────────────────────────────────────────
         Map<String, Object> btnAction = new HashMap<>();
         btnAction.put("type", "message");
-        btnAction.put("label", "เพิ่มลงตะกร้า");
+        btnAction.put("label", "🛒 เพิ่มลงตะกร้า");
         btnAction.put("text", "เพิ่มสินค้า " + p.getId());
 
         Map<String, Object> button = new HashMap<>();
         button.put("type", "button");
         button.put("style", "primary");
-        button.put("color", "#905c44");
-        button.put("margin", "xxl");
+        button.put("color", C_PRIMARY);
+        button.put("margin", "md");
         button.put("action", btnAction);
 
         Map<String, Object> footer = new HashMap<>();
         footer.put("type", "box");
         footer.put("layout", "vertical");
+        footer.put("backgroundColor", C_BG);
         footer.put("contents", List.of(button));
 
-        // ── Bubble ────────────────────────────────────────────────────────────
         Map<String, Object> bubble = new HashMap<>();
         bubble.put("type", "bubble");
         bubble.put("hero", hero);
@@ -1439,11 +1468,59 @@ public class LineMessageServiceImpl implements LineMessageService {
         return bubble;
     }
 
-    // ─── Reply helpers ─────────────────────────────────────────────────────────
+    // ─── Phone Number ─────────────────────────────────────────────────────────
+
+    private void handlePhoneInput(String replyToken, String text, String lineUserId, User user) {
+        if ("ยกเลิก".equals(text)) {
+            phoneSessions.remove(lineUserId);
+            replyMessage(replyToken, "❌ ยกเลิกการแจ้งเบอร์แล้ว");
+            return;
+        }
+        if (user == null) {
+            phoneSessions.remove(lineUserId);
+            replyMessage(replyToken, "⚠️ ไม่พบข้อมูลผู้ใช้ กรุณาลองใหม่");
+            return;
+        }
+        String digits = text.replaceAll("[\\s\\-]", "");
+        if (!digits.matches("0[6-9]\\d{8}")) {
+            replyMessage(replyToken, "⚠️ รูปแบบเบอร์ไม่ถูกต้อง\nกรุณาพิมพ์เบอร์ 10 หลัก เช่น 0812345678\n\nพิมพ์ \"ยกเลิก\" เพื่อยกเลิก");
+            return;
+        }
+        user.setPhone(digits);
+        userRepository.save(user);
+        phoneSessions.remove(lineUserId);
+        replyMessage(replyToken, "✅ บันทึกเบอร์โทรศัพท์สำเร็จ!\n📱 " + digits);
+    }
+
+    // ─── Store Contact ────────────────────────────────────────────────────────
+
+    private void sendStoreContact(String replyToken) {
+        try {
+            com.sm.jeyz9.storemateapi.dto.StoreInfoDTO store = storeInfoService.getStoreDetails();
+            StringBuilder sb = new StringBuilder();
+            sb.append("📞 ติดต่อเรา\n");
+            if (store.getStoreName()     != null) sb.append("🏪 ").append(store.getStoreName()).append("\n");
+            if (store.getPhone()         != null) sb.append("📱 โทร: ").append(store.getPhone()).append("\n");
+            if (store.getEmail()         != null) sb.append("📧 อีเมล: ").append(store.getEmail()).append("\n");
+            if (store.getStreetAddress() != null || store.getSubdistrict() != null) {
+                sb.append("📍 ที่อยู่: ");
+                if (store.getStreetAddress() != null) sb.append(store.getStreetAddress()).append(" ");
+                if (store.getSubdistrict()   != null) sb.append(store.getSubdistrict()).append(" ");
+                if (store.getDistrict()      != null) sb.append(store.getDistrict()).append(" ");
+                if (store.getProvince()      != null) sb.append(store.getProvince()).append(" ");
+                if (store.getZipcode()       != null) sb.append(store.getZipcode());
+            }
+            replyMessage(replyToken, sb.toString().trim());
+        } catch (Exception e) {
+            log.warn("ดึงข้อมูลร้านค้าไม่ได้: {}", e.getMessage());
+            replyMessage(replyToken, "ขออภัย ไม่สามารถดึงข้อมูลร้านค้าได้ในขณะนี้");
+        }
+    }
+
+    // ─── LINE API Helpers ─────────────────────────────────────────────────────
 
     private void replyMessage(String replyToken, String text) {
         String url = "https://api.line.me/v2/bot/message/reply";
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(lineConfig.getChannelToken());
@@ -1458,7 +1535,6 @@ public class LineMessageServiceImpl implements LineMessageService {
 
     private void replyMessages(String replyToken, List<Map<String, Object>> messages) {
         String url = "https://api.line.me/v2/bot/message/reply";
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(lineConfig.getChannelToken());
@@ -1466,6 +1542,25 @@ public class LineMessageServiceImpl implements LineMessageService {
         Map<String, Object> body = new HashMap<>();
         body.put("replyToken", replyToken);
         body.put("messages", messages);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        restTemplate.postForEntity(url, request, String.class);
+    }
+
+    private void replyFlexMessage(String replyToken, String altText, Map<String, Object> contents) {
+        String url = "https://api.line.me/v2/bot/message/reply";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(lineConfig.getChannelToken());
+
+        Map<String, Object> flexMessage = new HashMap<>();
+        flexMessage.put("type", "flex");
+        flexMessage.put("altText", altText);
+        flexMessage.put("contents", contents);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("replyToken", replyToken);
+        body.put("messages", List.of(flexMessage));
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
         restTemplate.postForEntity(url, request, String.class);

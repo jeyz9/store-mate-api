@@ -42,11 +42,6 @@ public class WebConfig implements WebMvcConfigurer {
         return new ObjectMapper();
     }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
-
     @Bean(name = "taskExecutor")
     @Primary
     public TaskExecutor taskExecutor() {
