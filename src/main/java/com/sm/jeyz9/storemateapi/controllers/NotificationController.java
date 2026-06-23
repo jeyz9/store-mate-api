@@ -4,6 +4,7 @@ import com.sm.jeyz9.storemateapi.dto.NotifyOwnerResponseDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
 import com.sm.jeyz9.storemateapi.services.NotificationService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -50,8 +51,17 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.removeNotify(notifyId));
     }
     
+    @Operation(
+            description = """
+                ประเภทแจ้งเตือน (type)
+                ALL: ทั้งหมด
+                STORE: ร้านค้า
+                ORDERED: ออร์เดอร์
+                REFUNDED: คืนเงิน
+            """
+    )
     @GetMapping("/notify")
-    public ResponseEntity<List<NotifyResponseDTO>> getNotifyUser(Principal principal) {
-        return ResponseEntity.ok(notificationService.getAllNotifyUser(principal.getName()));
+    public ResponseEntity<List<NotifyResponseDTO>> getNotifyUser(@RequestParam(required = false, defaultValue = "ALL") String type, Principal principal) {
+        return ResponseEntity.ok(notificationService.getAllNotifyUser(principal.getName(), type));
     }
 }
