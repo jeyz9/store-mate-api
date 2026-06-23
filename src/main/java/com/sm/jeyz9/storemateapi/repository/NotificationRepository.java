@@ -21,10 +21,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         LEFT JOIN users u ON u.id = nr.recipient_id
         LEFT JOIN user_role ur ON ur.user_id = u.id
         LEFT JOIN roles r ON ur.role_id = r.id
-        WHERE nr.recipient_id = :userId OR n.send_to IN ('ALL', r.role_name)
+        WHERE (nr.recipient_id = :userId OR n.send_to IN ('ALL', r.role_name))
+          AND (COALESCE(:type, NULL) IS NULL OR n.notify_type IN (:type))
         ORDER BY n.created_at DESC;
     """, nativeQuery = true)
-    List<NotifyResponseDTO> getAllNotifyByUserId(@Param("userId") Long userId);
+    List<NotifyResponseDTO> getAllNotifyByUserId(@Param("userId") Long userId, @Param("type") String type);
 
     @Query(value = """
         SELECT DISTINCT n.id, n.title, n.message, n.send_to, n.created_at FROM notifications n WHERE n.send_to IN ('ALL', 'CUSTOMER', 'MODERATOR')

@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface NotificationService {
     String sendNotification(String email, NotifyRequestDTO request);
-    List<NotifyResponseDTO> getAllNotifyUser(String email);
+    List<NotifyResponseDTO> getAllNotifyUser(String email, String type);
     Page<NotifyOwnerResponseDTO> getAllNotify(String keyword, Integer page, Integer size);
     String removeNotify(Long notifyId);
 }
