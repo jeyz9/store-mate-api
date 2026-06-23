@@ -5,6 +5,7 @@ import com.sm.jeyz9.storemateapi.dto.NotifyRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Notification;
+import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
 import com.sm.jeyz9.storemateapi.models.SendTo;
 import com.sm.jeyz9.storemateapi.models.User;
 import com.sm.jeyz9.storemateapi.repository.NotificationRepository;
@@ -16,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +48,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .sender(sender)
                 .sendTo(SendTo.valueOf(request.getSendTo()))
                 .createdAt(LocalDateTime.now())
+                .notifyType(NotifyTypeName.STORE)
                 .build();
         notificationRepository.save(notify);
         messagingService.sendNotifyToUser(notify);
@@ -55,9 +56,9 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public List<NotifyResponseDTO> getAllNotifyUser(String email) {
+    public List<NotifyResponseDTO> getAllNotifyUser(String email, String type) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
-        return notificationRepository.getAllNotifyByUserId(user.getId());
+        return notificationRepository.getAllNotifyByUserId(user.getId(), type);
     }
 
     @Override
