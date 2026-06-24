@@ -3,6 +3,7 @@ package com.sm.jeyz9.storemateapi.controllers;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.ReorderRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.services.PaymentService;
@@ -40,12 +41,12 @@ public class PaymentController {
 
     @PostMapping("/orders/payments/intent")
     public ResponseEntity<Map<String, String>> checkoutIntent(@RequestBody CheckoutRequestDTO request, Principal principal) {
-        return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request), HttpStatus.OK);
+        return new ResponseEntity<>(paymentService.checkoutIntent(principal.getName(), request), HttpStatus.CREATED);
     }
     
     @PostMapping("/orders/payments/now")
     public ResponseEntity<Map<String, String>> checkoutNow(@RequestBody CheckoutNowRequestDTO request, Principal principal) {
-        return new ResponseEntity<>(paymentService.checkoutNow(principal.getName(), request), HttpStatus.OK);
+        return new ResponseEntity<>(paymentService.checkoutNow(principal.getName(), request), HttpStatus.CREATED);
     }
     
     @PostMapping("/payment/refund-request/send")
@@ -80,12 +81,17 @@ public class PaymentController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Invalid signature");
         }
-        return new ResponseEntity<>("received", HttpStatus.OK);
+        return new ResponseEntity<>("received", HttpStatus.CREATED);
     }
 
     @PostMapping("/retry")
     public ResponseEntity<RetryPaymentResponseDTO> retryPayment(
             @RequestBody RetryPaymentRequestDTO request) throws Exception {
-        return ResponseEntity.ok(paymentService.retryPayment(request));
+        return new ResponseEntity<>(paymentService.retryPayment(request), HttpStatus.CREATED);
+    }
+    
+    @PostMapping("/payment/reorder")
+    public ResponseEntity<Map<String, String>> reorder(@RequestBody ReorderRequestDTO request, Principal principal){
+        return new ResponseEntity<>(paymentService.reorder(request, principal.getName()), HttpStatus.CREATED);
     }
 }
