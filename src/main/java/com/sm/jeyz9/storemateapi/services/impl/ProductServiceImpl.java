@@ -25,7 +25,6 @@ import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.services.ProductService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
 import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
-import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -42,7 +41,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-@Slf4j
 @Service
 public class ProductServiceImpl implements ProductService {
     
