@@ -35,5 +35,3 @@ supabase:
 stripe:
   secret-key: "test"
   webhook-secret: "test"
-  success-url: "test"
-  cancel-url: "test"
