@@ -39,6 +39,6 @@ stripe:
   cancel-url: "test"
 
 line:
-  hannel:
+  channel:
     secret: "test"
     token: "test"
