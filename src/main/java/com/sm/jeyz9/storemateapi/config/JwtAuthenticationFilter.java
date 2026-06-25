@@ -29,9 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
         return request.getServletPath().startsWith("/ws")||
-                path.equals("/api/v1/line/webhook");
+                request.getServletPath().equals("/api/v1/line/webhook");
     }
     
     @Override
