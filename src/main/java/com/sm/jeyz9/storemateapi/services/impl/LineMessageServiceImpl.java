@@ -1468,6 +1468,18 @@ public class LineMessageServiceImpl implements LineMessageService {
         return bubble;
     }
 
+    // ─── Payment Notification ─────────────────────────────────────────────────
+
+    @Override
+    public void pushPaymentSuccess(String lineUserId, String orderNo, double total) {
+        String msg = "✅ ชำระเงินสำเร็จ!\n\n"
+                + "📋 หมายเลขออเดอร์: " + orderNo + "\n"
+                + String.format("💰 ยอด: ฿%.0f\n\n", total)
+                + "📦 ร้านกำลังเตรียมสินค้าให้คุณครับ\n"
+                + "พิมพ์ \"สถานะสินค้า\" เพื่อติดตามออเดอร์";
+        pushMessage(lineUserId, msg);
+    }
+
     // ─── Phone Number ─────────────────────────────────────────────────────────
 
     private void handlePhoneInput(String replyToken, String text, String lineUserId, User user) {
