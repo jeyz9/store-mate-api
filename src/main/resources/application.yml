@@ -49,3 +49,9 @@ supabase:
 stripe:
     secret-key: ${STRIPE_SECRET_KEY}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+
+line:
+  channel:
+    secret: ${LINE_CHANNEL_SECRET}
+    token: ${LINE_CHANNEL_ACCESS_TOKEN}
+

@@ -21,6 +21,7 @@ public class MessagingService {
     }
 
     public void sendToUser(String email, String status) {
+        if (email == null || email.isBlank()) return; // Line user ไม่มี email → ข้ามได้เลย
         Map<String, String> payload = new HashMap<>();
         payload.put("paymentStatus", status);
         messagingTemplate.convertAndSendToUser(email, "/queue/notifications", payload);

@@ -35,3 +35,8 @@ supabase:
 stripe:
   secret-key: "test"
   webhook-secret: "test"
+
+line:
+  channel:
+    secret: "test"
+    token: "test"
