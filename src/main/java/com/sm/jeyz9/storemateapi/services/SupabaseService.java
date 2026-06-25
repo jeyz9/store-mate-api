@@ -232,12 +232,7 @@ public class SupabaseService {
             );
 
             return true;
-
         } catch (HttpClientErrorException e) {
-
-            System.out.println("Status = " + e.getStatusCode());
-            System.out.println("Body = " + e.getResponseBodyAsString());
-
             return false;
         }
     }

@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.NotificationDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDetailsDTO;
@@ -14,6 +15,7 @@ import com.sm.jeyz9.storemateapi.dto.RefundDetailsDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundPaginationDTO;
 import com.sm.jeyz9.storemateapi.dto.ShippingDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
+import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderAddress;
 import com.sm.jeyz9.storemateapi.models.OrderStatusHistory;
@@ -32,6 +34,7 @@ import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
 import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
+import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.OrderService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,9 +66,10 @@ public class OrderServiceImpl implements OrderService {
     private final StoreInfoRepository storeInfoRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final ReviewRepository reviewRepository;
+    private final MessagingService messagingService;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository, ReviewRepository reviewRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository, ReviewRepository reviewRepository, MessagingService messagingService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -73,6 +77,7 @@ public class OrderServiceImpl implements OrderService {
         this.storeInfoRepository = storeInfoRepository;
         this.refundRequestRepository = refundRequestRepository;
         this.reviewRepository = reviewRepository;
+        this.messagingService = messagingService;
     }
 
     @Override
@@ -212,8 +217,19 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             orderStatusHistoryRepository.save(orderStatusHistory);
+
+            String statusText = getOrderStatusText(statusName);
+
+            NotificationDTO notify = NotificationDTO.builder()
+                    .title("สถานะคำสั่งซื้อเปลี่ยนเป็น%s".formatted(statusText))
+                    .message("ออร์เดอร์เลขที่ %s มีสถานะ%s".formatted(order.getOrderNo(), statusText))
+                    .notifyType(NotifyTypeName.ORDERED)
+                    .build();
+            
+            messagingService.sendNotifyToUser(order.getUser().getEmail(), notify);
+            
         }catch (Exception e) {
-            e.printStackTrace();
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
         }
         return "Update status successfully";
     }
@@ -455,5 +471,15 @@ public class OrderServiceImpl implements OrderService {
                 zipcode.getProvince().getName(),
                 zipcode.getZipcode()
         );
+    }
+
+    private String getOrderStatusText(OrderStatusName status) {
+        return switch (status) {
+            case PENDING -> "รอชำระเงิน";
+            case PROCESSING -> "กำลังจัดส่ง";
+            case RECEIVED -> "รอรับสินค้า";
+            case COMPLETED -> "สำเร็จ";
+            default -> throw new IllegalStateException("Unexpected value: " + status);
+        };
     }
 }

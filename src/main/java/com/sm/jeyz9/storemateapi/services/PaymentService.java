@@ -2,6 +2,7 @@ package com.sm.jeyz9.storemateapi.services;
 
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.NotificationDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ReorderRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
@@ -9,6 +10,7 @@ import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.CartItem;
 import com.sm.jeyz9.storemateapi.models.CheckoutTypeName;
+import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
 import com.sm.jeyz9.storemateapi.models.Order;
 import com.sm.jeyz9.storemateapi.models.OrderAddress;
 import com.sm.jeyz9.storemateapi.models.OrderChannelName;
@@ -316,6 +318,13 @@ public class PaymentService {
                 .refundNo(RunningNumberUtil.generate("REF"))
                 .build();
         refundRequestRepository.save(refund);
+
+        NotificationDTO notify = NotificationDTO.builder()
+                .title("ส่งคำขอคืนเงินสำเร็จ")
+                .message("คำขอคืนเงินสำหรับออร์เดอร์เลขที่ %s ถูกส่งให้เจ้าหน้าที่ดำเนินการเรียบร้อยแล้ว".formatted(order.getOrderNo()))
+                .notifyType(NotifyTypeName.REFUNDED)
+                .build();
+        messagingService.sendNotifyToUser(email, notify);
         return "Send refund successfully";
     }
     
@@ -333,6 +342,15 @@ public class PaymentService {
 
             Order order = orderRepository.findById(refundRequest.getOrder().getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
 
+            NotificationDTO notify = NotificationDTO.builder()
+                    .title("คำขอคืนเงินได้รับการอนุมัติแล้ว")
+                    .message("คำขอคืนเงินสำหรับออร์เดอร์เลขที่ %s ได้รับการอนุมัติเรียบร้อยแล้ว"
+                            .formatted(order.getOrderNo()))
+                    .notifyType(NotifyTypeName.REFUNDED)
+                    .build();
+
+            messagingService.sendNotifyToUser(refundRequest.getUser().getEmail(), notify);
+            
             if (refundRequest.getOrder().getCheckoutType().equals(CheckoutTypeName.DESTINATION)) {
                 order.setStatus(OrderStatusName.CANCELLED);
                 orderRepository.save(order);
@@ -399,6 +417,14 @@ public class PaymentService {
         if(!refundRequest.getStatus().equals(RefundStatusName.PENDING)) {
             throw new WebException(HttpStatus.BAD_REQUEST, "This refund request can't rejected");
         }
+
+        NotificationDTO notify = NotificationDTO.builder()
+                .title("คำขอคืนเงินถูกปฏิเสธ")
+                .message("คำขอคืนเงินสำหรับออร์เดอร์เลขที่ %s ถูกปฏิเสธ".formatted(refundRequest.getOrder().getOrderNo()))
+                .notifyType(NotifyTypeName.REFUNDED)
+                .build();
+
+        messagingService.sendNotifyToUser(refundRequest.getUser().getEmail(), notify);
         refundRequest.setStatus(RefundStatusName.REJECTED);
         refundRequestRepository.save(refundRequest);
         return "Reject refund request success";
