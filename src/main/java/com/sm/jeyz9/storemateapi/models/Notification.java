@@ -42,4 +42,6 @@ public class Notification {
     @Enumerated(EnumType.STRING)
     private SendTo sendTo;
     
+    @Enumerated(EnumType.STRING)
+    private NotifyTypeName notifyType;
 }

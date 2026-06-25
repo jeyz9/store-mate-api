@@ -3,6 +3,7 @@ package com.sm.jeyz9.storemateapi.services;
 import com.sm.jeyz9.storemateapi.dto.CheckoutNowRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.CheckoutRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RefundRequestDTO;
+import com.sm.jeyz9.storemateapi.dto.ReorderRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RetryPaymentRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.RetryPaymentResponseDTO;
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
@@ -411,6 +412,100 @@ public class PaymentService {
                 break;
             default:
                 throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown intent " + event.getType());
+        }
+    }
+    
+    @Transactional
+    public Map<String, String> reorder(ReorderRequestDTO request, String email) {
+        Order order = orderRepository.findOneByOrderNo(request.getOrderNo()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
+        try {
+            User user = userRepository.findUserByEmail(email)
+                    .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
+
+            OrderStatusName status =
+                    request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)
+                            ? OrderStatusName.PROCESSING
+                            : OrderStatusName.PENDING;
+
+            Order createOrder = createOrder(user, order.getCheckoutType(), status);
+
+            List<OrderItem> orderItems = order.getOrderItems().stream().map(item -> {
+
+                Product product = item.getProduct();
+
+                if (
+                        !(product.getStock_quantity() > 0
+                                && product.getProductStatus().getId().equals(1L)
+                                && product.getStock_quantity() >= item.getQuantity())
+                ) {
+                    throw new WebException(
+                            HttpStatus.BAD_REQUEST,
+                            "Product is unavailable"
+                    );
+                }
+
+                product.setStock_quantity(product.getStock_quantity() - item.getQuantity());
+                productRepository.save(product);
+
+                return OrderItem.builder()
+                        .product(item.getProduct())
+                        .quantity(item.getQuantity())
+                        .order(createOrder)
+                        .unitPrice(item.getProduct().getPrice())
+                        .build();
+
+            }).toList();
+
+            orderItemRepository.saveAll(orderItems);
+
+            double totalPrice = orderItems.stream().mapToDouble(o -> o.getUnitPrice() * o.getQuantity()).sum();
+            order.setTotalPrice(totalPrice);
+
+            handleCreateOrderAddress(user, order);
+
+            Map<String, String> res = new HashMap<>();
+
+            if (
+                    order.getCheckoutType().equals(CheckoutTypeName.CARD)
+                            || order.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)
+            ) {
+
+                long total = (long) (
+                        orderItems.stream()
+                                .mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity())
+                                .sum() * 100
+                );
+
+                if (total < 1) {
+                    throw new WebException(HttpStatus.BAD_REQUEST, "Invalid total amount");
+                }
+
+                PaymentIntent intent = handleStripeIntent(total, user.getEmail());
+
+                order.setStripePaymentIntent(intent.getId());
+                order.setClientSecret(intent.getClientSecret());
+
+                orderRepository.save(order);
+
+                res.put("orderNo", order.getOrderNo());
+                res.put("clientSecret", intent.getClientSecret());
+                res.put("paymentIntentId", intent.getId());
+
+                return res;
+            }
+
+            res.put("message", "create order success");
+            res.put("orderNo", order.getOrderNo());
+
+            return res;
+
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Server Error: " + e.getMessage()
+            );
         }
     }
 

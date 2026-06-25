@@ -50,6 +50,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             List<ProductStatus> statuses = new ArrayList<>();
             statuses.add(new ProductStatus(null, ProductStatusName.ACTIVE.toString()));
             statuses.add(new ProductStatus(null, ProductStatusName.INACTIVE.toString()));
+            statuses.add(new ProductStatus(null, ProductStatusName.DELETED.toString()));
             productStatusRepository.saveAll(statuses);
         }
     }

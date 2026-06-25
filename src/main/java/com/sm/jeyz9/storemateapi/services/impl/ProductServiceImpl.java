@@ -15,6 +15,7 @@ import com.sm.jeyz9.storemateapi.models.Category;
 import com.sm.jeyz9.storemateapi.models.Product;
 import com.sm.jeyz9.storemateapi.models.ProductImage;
 import com.sm.jeyz9.storemateapi.models.ProductStatus;
+import com.sm.jeyz9.storemateapi.models.ProductStatusName;
 import com.sm.jeyz9.storemateapi.models.Review;
 import com.sm.jeyz9.storemateapi.repository.CategoryRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductImageRepository;
@@ -108,6 +109,7 @@ public class ProductServiceImpl implements ProductService {
         try {
             List<Product> productList = productRepository.findAll();
             List<ProductDTO> products = mapToProductDTO(productList);
+            products = products.stream().filter(p -> !p.isDeleted()).toList();
             return ProductWithCategoryDTO.builder()
                     .promotion(
                             products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).limit(4).toList()
@@ -132,6 +134,7 @@ public class ProductServiceImpl implements ProductService {
         try{
             List<Product> productList = productRepository.findAll();
             Stream<Product> stream = productList.stream();
+            stream = stream.filter(p -> !p.isDeleted());
             
             if(keyword != null && !keyword.trim().isEmpty()){
                 stream = stream.filter(p -> p.getName().toLowerCase().contains(keyword.toLowerCase()));
@@ -223,19 +226,10 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public String removeProduct(Long id) {
         Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
-        try {
-            product.getProductImage().stream().map(
-                    p -> {
-                        if(supabaseService.imageExists(p.getImageUrl())){
-                            supabaseService.deleteProductImage(p.getImageUrl());
-                        }
-                        return null;
-                    }
-            ).toList();
-            productRepository.delete(product);
-        }catch (Exception e) {
-            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
-        }
+        ProductStatus status = productStatusRepository.findByStatus(ProductStatusName.DELETED.name()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Status not found"));
+        product.setDeleted(true);
+        product.setProductStatus(status);
+        productRepository.save(product);
         return "Delete product success";
     }
 
@@ -287,6 +281,7 @@ public class ProductServiceImpl implements ProductService {
                             .price(p.getPrice())
                             .createdAt(p.getCreatedAt())
                             .productStatus(p.getProductStatus().getStatus())
+                            .deleted(p.isDeleted())
                             .build()
         ).sorted(Comparator.comparing(ProductDTO::getCreatedAt)).toList();
     }
