@@ -25,6 +25,7 @@ import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.services.ProductService;
 import com.sm.jeyz9.storemateapi.services.SupabaseService;
 import com.sm.jeyz9.storemateapi.utils.RunningNumberUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -41,6 +42,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class ProductServiceImpl implements ProductService {
     
@@ -251,9 +253,11 @@ public class ProductServiceImpl implements ProductService {
             
             if(request.getRemoveImages() != null && !request.getRemoveImages().isEmpty()) {
                 for (Long imageId : request.getRemoveImages()) {
-                    ProductImage img = productImageRepository.findById(imageId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Image not found"));
-                    productImageRepository.delete(img);
-                    supabaseService.deleteProductImage(img.getImageUrl());
+                    ProductImage img = productImageRepository.findProductImageByIdAndProductId(imageId, product.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Image not found"));
+                    if(supabaseService.imageExists(img.getImageUrl())){
+                        supabaseService.deleteProductImage(img.getImageUrl());
+                    }
+                    product.getProductImage().remove(img);
                 }
             }
 
