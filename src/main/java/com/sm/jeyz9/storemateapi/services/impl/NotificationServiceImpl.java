@@ -58,6 +58,9 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public List<NotifyResponseDTO> getAllNotifyUser(String email, String type) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+        if(type.equals("ALL")) {
+            type = null;
+        }
         return notificationRepository.getAllNotifyByUserId(user.getId(), type);
     }
 
