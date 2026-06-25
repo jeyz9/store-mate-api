@@ -61,12 +61,13 @@ public class PaymentService {
     private final ProductRepository productRepository;
     private final MessagingService messagingService;
     private final RefundRequestRepository refundRequestRepository;
+    private final LineMessageService lineMessageService;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository, LineMessageService lineMessageService) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -76,6 +77,7 @@ public class PaymentService {
         this.productRepository = productRepository;
         this.messagingService = messagingService;
         this.refundRequestRepository = refundRequestRepository;
+        this.lineMessageService = lineMessageService;
     }
 
     @Transactional
@@ -554,6 +556,13 @@ public class PaymentService {
         order.setStatus(OrderStatusName.PROCESSING);
         messagingService.sendToUser(order.getUser().getEmail(), "PAYMENT_SUCCESS");
         orderRepository.save(order);
+
+        String lineUserId = order.getUser().getLineUserId();
+        if (lineUserId != null) {
+            double total = order.getOrderItems().stream()
+                    .mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity()).sum();
+            lineMessageService.pushPaymentSuccess(lineUserId, order.getOrderNo(), total);
+        }
     }
     
     private PaymentIntent handleStripeIntent(Long total, String email) throws StripeException {

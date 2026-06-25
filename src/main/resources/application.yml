@@ -49,5 +49,9 @@ supabase:
 stripe:
     secret-key: ${STRIPE_SECRET_KEY}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET}
-    success-url: ${STRIPE_SUCCESS_URL}
-    cancel-url: ${STRIPE_CANCEL_URL}
+
+line:
+  channel:
+    secret: ${LINE_CHANNEL_SECRET}
+    token: ${LINE_CHANNEL_ACCESS_TOKEN}
+

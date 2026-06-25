@@ -74,7 +74,8 @@ public class SecurityConfig {
                                         "/api/v1/auth/forgot-password",
                                         "/api/v1/auth/reset-password",
                                         "/api/v1/reviews/{orderItemId}",
-                                        
+                                        "/api/v1/line/webhook",
+
                                         // TODO: for test
                                         "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",
