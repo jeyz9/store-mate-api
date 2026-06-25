@@ -251,9 +251,11 @@ public class ProductServiceImpl implements ProductService {
             
             if(request.getRemoveImages() != null && !request.getRemoveImages().isEmpty()) {
                 for (Long imageId : request.getRemoveImages()) {
-                    ProductImage img = productImageRepository.findById(imageId).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Image not found"));
-                    productImageRepository.delete(img);
-                    supabaseService.deleteProductImage(img.getImageUrl());
+                    ProductImage img = productImageRepository.findProductImageByIdAndProductId(imageId, product.getId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Image not found"));
+                    if(supabaseService.imageExists(img.getImageUrl())){
+                        supabaseService.deleteProductImage(img.getImageUrl());
+                    }
+                    product.getProductImage().remove(img);
                 }
             }
 
