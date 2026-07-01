@@ -297,6 +297,19 @@ public class PaymentService {
         }
         
         if(order.getStatus().equals(OrderStatusName.PENDING)) {
+            RefundRequest refund = RefundRequest.builder()
+                    .id(null)
+                    .order(order)
+                    .user(user)
+                    .status(RefundStatusName.APPROVED)
+                    .reason(request.getReason())
+                    .description(request.getDescription())
+                    .requestedAt(LocalDateTime.now())
+                    .approvedAt(LocalDateTime.now())
+                    .refundNo(RunningNumberUtil.generate("REF"))
+                    .build();
+            refundRequestRepository.save(refund);
+            
             order.setStatus(OrderStatusName.CANCELLED);
             orderRepository.save(order);
             return "Cancel order success";
