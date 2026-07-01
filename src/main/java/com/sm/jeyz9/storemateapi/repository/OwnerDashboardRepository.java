@@ -243,12 +243,12 @@ public class OwnerDashboardRepository {
         String sql = """
                 WITH date_filter AS (
                       SELECT CASE ?
-                          WHEN 'TODAY' THEN DATE_TRUNC('day', CURRENT_TIMESTAMP)
-                          WHEN 'WEEK' THEN DATE_TRUNC('week', CURRENT_TIMESTAMP)
-                          WHEN 'MONTH' THEN DATE_TRUNC('month', CURRENT_TIMESTAMP)
-                      ELSE DATE_TRUNC('month', CURRENT_TIMESTAMP)
-                      END AS start_date,
-                      CURRENT_TIMESTAMP AS end_date
+                         WHEN 'TODAY' THEN DATE_TRUNC('day', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')
+                         WHEN 'WEEK' THEN DATE_TRUNC('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')
+                         WHEN 'MONTH' THEN DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')
+                         ELSE DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')
+                         END AS start_date,
+                         CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok' AS end_date
                   )
                   SELECT
                       COALESCE(SUM(o.total_price), 0) AS "totalPrice",
