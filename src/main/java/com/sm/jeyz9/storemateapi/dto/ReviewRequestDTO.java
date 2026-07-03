@@ -19,6 +19,5 @@ public class ReviewRequestDTO {
     @Max(value = 5, message = "Score must not exceed 5")
     private Float reviewScore;
 
-    @NotBlank(message = "Message is required")
     private String message;
 }
