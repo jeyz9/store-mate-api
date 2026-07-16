@@ -300,11 +300,11 @@ public class OrderServiceImpl implements OrderService {
             
             if(status != null && !status.trim().isBlank() && !status.equals("ALL")) {
                 stream = stream.filter(
-                  r -> r.getStatus().equals(keyword)      
+                  r -> r.getStatus().equals(status)      
                 );
             }
 
-            List<RefundDTO> refunds = stream.toList();
+            List<RefundDTO> refunds = stream.sorted(Comparator.comparing(RefundDTO::getRequestedAt)).toList();
             
             Pageable pageable = PageRequest.of(page, size);
             int start = (int) pageable.getOffset();

@@ -160,12 +160,15 @@ public class PaymentService {
 
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
+                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                order.setUpdatedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
+                res.put("paymentExpired", order.getPaymentExpired().toString());
 
                 return res;
             }
@@ -263,12 +266,15 @@ public class PaymentService {
 
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
+                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                order.setUpdatedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
+                res.put("paymentExpired", order.getPaymentExpired().toString());
 
                 return res;
             }
@@ -397,13 +403,16 @@ public class PaymentService {
         PaymentIntent paymentIntent =
                 PaymentIntent.retrieve(order.getStripePaymentIntent());
 
-        if ("requires_payment_method".equals(paymentIntent.getStatus())
+        if (("requires_payment_method".equals(paymentIntent.getStatus())
                 || "requires_confirmation".equals(paymentIntent.getStatus())
-                || "requires_action".equals(paymentIntent.getStatus())) {
+                || "requires_action".equals(paymentIntent.getStatus())) 
+                && order.getPaymentExpired().isAfter(LocalDateTime.now())
+        ) {
 
             return RetryPaymentResponseDTO.builder()
                     .clientSecret(paymentIntent.getClientSecret())
                     .paymentIntentId(paymentIntent.getId())
+                    .paymentExpired(order.getPaymentExpired())
                     .build();
         }
 
@@ -417,11 +426,14 @@ public class PaymentService {
         
         order.setStripePaymentIntent(newPaymentIntent.getId());
         order.setClientSecret(newPaymentIntent.getClientSecret());
+        order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+        order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
         return RetryPaymentResponseDTO.builder()
                 .clientSecret(newPaymentIntent.getClientSecret())
                 .paymentIntentId(newPaymentIntent.getId())
+                .paymentExpired(order.getPaymentExpired())
                 .build();
     }
 
