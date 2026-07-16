@@ -88,9 +88,9 @@ public class OrderServiceImpl implements OrderService {
 
             List<Order> orders;
             if(status.equals(OrderStatusName.ALL)) {
-                orders = orderRepository.findAllByUser(user);
+                orders = orderRepository.findAllByUser(user).stream().sorted(Comparator.comparing(Order::getUpdatedAt)).toList();
             }else {
-                orders = orderRepository.findAllByUserAndStatus(user, status);
+                orders = orderRepository.findAllByUserAndStatus(user, status).stream().sorted(Comparator.comparing(Order::getUpdatedAt)).toList();
             }
             
             return mapToDTO(orders);
