@@ -88,9 +88,9 @@ public class OrderServiceImpl implements OrderService {
 
             List<Order> orders;
             if(status.equals(OrderStatusName.ALL)) {
-                orders = orderRepository.findAllByUser(user);
+                orders = orderRepository.findAllByUser(user).stream().sorted(Comparator.comparing(Order::getUpdatedAt)).toList();
             }else {
-                orders = orderRepository.findAllByUserAndStatus(user, status);
+                orders = orderRepository.findAllByUserAndStatus(user, status).stream().sorted(Comparator.comparing(Order::getUpdatedAt)).toList();
             }
             
             return mapToDTO(orders);
@@ -300,11 +300,11 @@ public class OrderServiceImpl implements OrderService {
             
             if(status != null && !status.trim().isBlank() && !status.equals("ALL")) {
                 stream = stream.filter(
-                  r -> r.getStatus().equals(keyword)      
+                  r -> r.getStatus().equals(status)      
                 );
             }
 
-            List<RefundDTO> refunds = stream.toList();
+            List<RefundDTO> refunds = stream.sorted(Comparator.comparing(RefundDTO::getRequestedAt)).toList();
             
             Pageable pageable = PageRequest.of(page, size);
             int start = (int) pageable.getOffset();

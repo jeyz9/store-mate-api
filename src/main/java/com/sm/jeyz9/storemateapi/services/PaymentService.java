@@ -17,6 +17,7 @@ import com.sm.jeyz9.storemateapi.models.OrderChannelName;
 import com.sm.jeyz9.storemateapi.models.OrderItem;
 import com.sm.jeyz9.storemateapi.models.OrderStatusName;
 import com.sm.jeyz9.storemateapi.models.Product;
+import com.sm.jeyz9.storemateapi.models.ProductStatusName;
 import com.sm.jeyz9.storemateapi.models.RefundRequest;
 import com.sm.jeyz9.storemateapi.models.RefundStatusName;
 import com.sm.jeyz9.storemateapi.models.User;
@@ -26,6 +27,7 @@ import com.sm.jeyz9.storemateapi.repository.OrderAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderItemRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductRepository;
+import com.sm.jeyz9.storemateapi.repository.ProductStatusRepository;
 import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
 import com.sm.jeyz9.storemateapi.repository.UserAddressRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
@@ -64,12 +66,13 @@ public class PaymentService {
     private final MessagingService messagingService;
     private final RefundRequestRepository refundRequestRepository;
     private final LineMessageService lineMessageService;
+    private final ProductStatusRepository productStatusRepository;
 
     @Value("${stripe.secret-key}")
     private String secretKey;
 
     @Autowired
-    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository, LineMessageService lineMessageService) {
+    public PaymentService(UserRepository userRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository, OrderItemRepository orderItemRepository, UserAddressRepository userAddressRepository, OrderAddressRepository orderAddressRepository, ProductRepository productRepository, MessagingService messagingService, RefundRequestRepository refundRequestRepository, LineMessageService lineMessageService, ProductStatusRepository productStatusRepository) {
         this.userRepository = userRepository;
         this.cartItemRepository = cartItemRepository;
         this.orderRepository = orderRepository;
@@ -80,6 +83,7 @@ public class PaymentService {
         this.messagingService = messagingService;
         this.refundRequestRepository = refundRequestRepository;
         this.lineMessageService = lineMessageService;
+        this.productStatusRepository = productStatusRepository;
     }
 
     @Transactional
@@ -118,7 +122,13 @@ public class PaymentService {
                     );
                 }
                 
-                product.setStock_quantity(product.getStock_quantity() - cartItem.getQuantity());
+                int stockNow = product.getStock_quantity() - cartItem.getQuantity();
+
+                if(stockNow == 0){
+                    product.setProductStatus(productStatusRepository.findByStatus(ProductStatusName.INACTIVE.name()).orElseThrow(() -> new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: While change product status")));
+                }
+                
+                product.setStock_quantity(stockNow);
                 productRepository.save(product);
                 
                 cartItemRepository.delete(cartItem);
@@ -160,12 +170,15 @@ public class PaymentService {
 
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
+                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                order.setUpdatedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
+                res.put("paymentExpired", order.getPaymentExpired().toString());
 
                 return res;
             }
@@ -230,7 +243,13 @@ public class PaymentService {
 
             orderItemRepository.save(orderItem);
 
-            product.setStock_quantity(product.getStock_quantity() - request.getQuantity());
+            int stockNow = product.getStock_quantity() - request.getQuantity();
+
+            if(stockNow == 0){
+                product.setProductStatus(productStatusRepository.findByStatus(ProductStatusName.INACTIVE.name()).orElseThrow(() -> new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: While change product status")));
+            }
+
+            product.setStock_quantity(stockNow);
             productRepository.save(product);
 
             double totalPrice = orderItem.getUnitPrice() * orderItem.getQuantity();
@@ -263,12 +282,15 @@ public class PaymentService {
 
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
+                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                order.setUpdatedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
+                res.put("paymentExpired", order.getPaymentExpired().toString());
 
                 return res;
             }
@@ -397,13 +419,16 @@ public class PaymentService {
         PaymentIntent paymentIntent =
                 PaymentIntent.retrieve(order.getStripePaymentIntent());
 
-        if ("requires_payment_method".equals(paymentIntent.getStatus())
+        if (("requires_payment_method".equals(paymentIntent.getStatus())
                 || "requires_confirmation".equals(paymentIntent.getStatus())
-                || "requires_action".equals(paymentIntent.getStatus())) {
+                || "requires_action".equals(paymentIntent.getStatus())) 
+                && order.getPaymentExpired().isAfter(LocalDateTime.now())
+        ) {
 
             return RetryPaymentResponseDTO.builder()
                     .clientSecret(paymentIntent.getClientSecret())
                     .paymentIntentId(paymentIntent.getId())
+                    .paymentExpired(order.getPaymentExpired())
                     .build();
         }
 
@@ -417,11 +442,14 @@ public class PaymentService {
         
         order.setStripePaymentIntent(newPaymentIntent.getId());
         order.setClientSecret(newPaymentIntent.getClientSecret());
+        order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+        order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
         return RetryPaymentResponseDTO.builder()
                 .clientSecret(newPaymentIntent.getClientSecret())
                 .paymentIntentId(newPaymentIntent.getId())
+                .paymentExpired(order.getPaymentExpired())
                 .build();
     }
 
@@ -485,7 +513,13 @@ public class PaymentService {
                     );
                 }
 
-                product.setStock_quantity(product.getStock_quantity() - item.getQuantity());
+                int stockNow = product.getStock_quantity() - item.getQuantity();
+
+                if(stockNow == 0){
+                    product.setProductStatus(productStatusRepository.findByStatus(ProductStatusName.INACTIVE.name()).orElseThrow(() -> new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: While change product status")));
+                }
+
+                product.setStock_quantity(stockNow);
                 productRepository.save(product);
 
                 return OrderItem.builder()
@@ -525,12 +559,15 @@ public class PaymentService {
 
                 order.setStripePaymentIntent(intent.getId());
                 order.setClientSecret(intent.getClientSecret());
+                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                order.setUpdatedAt(LocalDateTime.now());
 
                 orderRepository.save(order);
 
                 res.put("orderNo", order.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
+                res.put("paymentExpired", order.getPaymentExpired().toString());
 
                 return res;
             }
