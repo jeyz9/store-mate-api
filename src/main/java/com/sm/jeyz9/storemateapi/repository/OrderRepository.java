@@ -96,7 +96,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         AND (
                 CAST(:end AS timestamp) IS NULL OR o.createdAt <= :end
             )
-        ORDER BY o.createdAt DESC
+        ORDER BY o.updatedAt DESC
     """)
     Page<Order> findOrders(
             @Param("keyword") String keyword,

@@ -73,6 +73,8 @@ public class Order {
     
     private boolean printed;
     private Double totalPrice;
+    private LocalDateTime paymentExpired;
+    private LocalDateTime updatedAt;
 
     @PrePersist
     public void prePersist() {
