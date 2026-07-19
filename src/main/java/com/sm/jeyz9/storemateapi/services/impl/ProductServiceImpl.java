@@ -200,7 +200,7 @@ public class ProductServiceImpl implements ProductService {
     public PaginationDTO<ProductModDTO> getAllProduct(String keyword, Integer page, Integer size) {
         List<ProductModDTO> products = productRepository.findAllProductModerator();
         Stream<ProductModDTO> stream = products.stream();
-        if(keyword != null && keyword.trim().isBlank()) {
+        if(keyword != null && !keyword.trim().isBlank()) {
             stream = stream.filter(p -> p.getProductName().toLowerCase().contains(keyword.toLowerCase()) || p.getProductNo().toLowerCase().contains(keyword.toLowerCase()));
         }
         
