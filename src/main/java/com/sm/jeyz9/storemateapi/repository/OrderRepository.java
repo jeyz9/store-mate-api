@@ -31,7 +31,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH z.province
         LEFT JOIN FETCH o.refundRequest
         WHERE o.user = :user AND o.status = :status
-        ORDER BY o.createdAt DESC
+        ORDER BY o.updatedAt DESC
     """)
     List<Order> findAllByUserAndStatus(@Param("user") User user, @Param("status") OrderStatusName status);
 
@@ -47,7 +47,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH z.province
         LEFT JOIN FETCH o.refundRequest rr
         WHERE o.user = :user
-        ORDER BY o.createdAt DESC
+        ORDER BY o.updatedAt DESC
     """)
     List<Order> findAllByUser(@Param("user") User user);
 
