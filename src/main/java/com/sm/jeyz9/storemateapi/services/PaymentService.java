@@ -418,6 +418,7 @@ public class PaymentService {
         Order order = orderRepository.findOneByOrderNo(request.getOrderNo()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
         
         try {
+            Stripe.apiKey = secretKey;
             PaymentIntent paymentIntent =
                     PaymentIntent.retrieve(order.getStripePaymentIntent());
 
