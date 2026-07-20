@@ -413,44 +413,51 @@ public class PaymentService {
         }
     }
 
-    public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) throws Exception {
+    public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request){
 
         Order order = orderRepository.findOneByOrderNo(request.getOrderNo()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Order not found"));
-        PaymentIntent paymentIntent =
-                PaymentIntent.retrieve(order.getStripePaymentIntent());
+        
+        try {
+            PaymentIntent paymentIntent =
+                    PaymentIntent.retrieve(order.getStripePaymentIntent());
 
-        if (("requires_payment_method".equals(paymentIntent.getStatus())
-                || "requires_confirmation".equals(paymentIntent.getStatus())
-                || "requires_action".equals(paymentIntent.getStatus())) 
-                && order.getPaymentExpired().isAfter(LocalDateTime.now())
-        ) {
+            if (("requires_payment_method".equals(paymentIntent.getStatus())
+                    || "requires_confirmation".equals(paymentIntent.getStatus())
+                    || "requires_action".equals(paymentIntent.getStatus()))
+                    && order.getPaymentExpired().isAfter(LocalDateTime.now())
+            ) {
+
+                return RetryPaymentResponseDTO.builder()
+                        .clientSecret(paymentIntent.getClientSecret())
+                        .paymentIntentId(paymentIntent.getId())
+                        .paymentExpired(order.getPaymentExpired())
+                        .build();
+            }
+
+            PaymentIntentCreateParams params =
+                    PaymentIntentCreateParams.builder()
+                            .setAmount(paymentIntent.getAmount())
+                            .setCurrency(paymentIntent.getCurrency())
+                            .build();
+
+            PaymentIntent newPaymentIntent = PaymentIntent.create(params);
+
+            order.setStripePaymentIntent(newPaymentIntent.getId());
+            order.setClientSecret(newPaymentIntent.getClientSecret());
+            order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
 
             return RetryPaymentResponseDTO.builder()
-                    .clientSecret(paymentIntent.getClientSecret())
-                    .paymentIntentId(paymentIntent.getId())
+                    .clientSecret(newPaymentIntent.getClientSecret())
+                    .paymentIntentId(newPaymentIntent.getId())
                     .paymentExpired(order.getPaymentExpired())
                     .build();
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
-
-        PaymentIntentCreateParams params =
-                PaymentIntentCreateParams.builder()
-                        .setAmount(paymentIntent.getAmount())
-                        .setCurrency(paymentIntent.getCurrency())
-                        .build();
-
-        PaymentIntent newPaymentIntent = PaymentIntent.create(params);
-        
-        order.setStripePaymentIntent(newPaymentIntent.getId());
-        order.setClientSecret(newPaymentIntent.getClientSecret());
-        order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        return RetryPaymentResponseDTO.builder()
-                .clientSecret(newPaymentIntent.getClientSecret())
-                .paymentIntentId(newPaymentIntent.getId())
-                .paymentExpired(order.getPaymentExpired())
-                .build();
     }
 
     public String refundReject(String refundNo) {
