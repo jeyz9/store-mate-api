@@ -8,8 +8,8 @@ import java.util.List;
 public interface CartService {
     String addProductToCart(String email, CartItemRequestDTO request);
     String addProductToCartByUserId(Long userId, CartItemRequestDTO request);
-    List<CartItemDTO> getCartItemsByUserId(Long userId);
     List<CartItemDTO> getCartItems(String email);
+    List<CartItemDTO> getCartItemsByUserId(Long userId);
     String updateQuantity(String email, Long productId, int delta);
     String updateQuantityByUserId(Long userId, Long productId, int delta);
     String removeItem(String email, Long productId);
