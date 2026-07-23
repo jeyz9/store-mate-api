@@ -20,6 +20,5 @@ public class UserManagementDTO {
     private String phone;
     private String role;
     private boolean isSuspended;
-    private String suspensionReason;
     private LocalDateTime suspendAt;
 }
