@@ -103,6 +103,10 @@ public class UserManagementServiceImpl implements UserManagementService {
 
             validateAdmin(currentUser);
 
+            if (currentUser.getId().equals(userId)) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "ไม่สามารถเปลี่ยนบทบาทของตนเองได้");
+            }
+
             User targetUser = userRepository.findById(userId)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานที่ระบุ"));
 
@@ -130,6 +134,10 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานในระบบ"));
 
             validateAdmin(currentUser);
+
+            if (currentUser.getId().equals(userId)) {
+                throw new WebException(HttpStatus.BAD_REQUEST, "ไม่สามารถระงับบัญชีของตนเองได้");
+            }
 
             User targetUser = userRepository.findById(userId)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "ไม่พบผู้ใช้งานที่ระบุ"));

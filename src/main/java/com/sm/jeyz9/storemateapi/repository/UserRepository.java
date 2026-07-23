@@ -20,6 +20,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
     SELECT u FROM User u
     LEFT JOIN u.roles r
+    WHERE (:search IS NULL OR u.name LIKE %:search% OR u.email LIKE %:search%)
+        AND (:roleName IS NULL OR r.roleName = :roleName)
+        AND (:suspended IS NULL OR u.isSuspended = :suspended)
     ORDER BY
         CASE r.roleName
             WHEN 'ADMIN' THEN 0
@@ -28,11 +31,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             ELSE 99
         END ASC
     """)
-    Page<User> findAllSortedByRole(Pageable pageable);
-    @Query("SELECT u FROM User u LEFT JOIN u.roles r WHERE " +
-            "(:search IS NULL OR u.name LIKE %:search% OR u.email LIKE %:search%) AND " +
-            "(:roleName IS NULL OR r.roleName = :roleName) AND " +
-            "(:suspended IS NULL OR u.isSuspended = :suspended)")
     Page<User> findAllWithFilters(
             @Param("search") String search,
             @Param("roleName") RoleName roleName,
