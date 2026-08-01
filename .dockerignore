@@ -1,0 +1,37 @@
+# Common
+README.md
+CHANGELOG.md
+docker-compose.yml
+Dockerfile
+
+### macOS template
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# JetBrains
+.idea
+*.iml
+
+# git
+.git
+.gitattributes
+.gitignore
+
+### Java template
+# Compiled class file
+*.class
+target/
+!target/*.jar
+
+# Log file
+*.log
+
+# DB data
+db/data
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
