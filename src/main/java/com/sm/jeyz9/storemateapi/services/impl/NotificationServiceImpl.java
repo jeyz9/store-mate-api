@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.sm.jeyz9.storemateapi.dto.NotificationTableDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyOwnerResponseDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
@@ -8,10 +9,12 @@ import com.sm.jeyz9.storemateapi.models.Notification;
 import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
 import com.sm.jeyz9.storemateapi.models.SendTo;
 import com.sm.jeyz9.storemateapi.models.User;
+import com.sm.jeyz9.storemateapi.repository.NotificationJDBCRepository;
 import com.sm.jeyz9.storemateapi.repository.NotificationRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.NotificationService;
+import jakarta.validation.constraints.Null;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,9 +22,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -29,13 +34,15 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final MessagingService messagingService;
     private final ModelMapper modelMapper;
+    private final NotificationJDBCRepository notificationJDBCRepository;
 
     @Autowired
-    public NotificationServiceImpl(NotificationRepository notificationRepository, UserRepository userRepository, MessagingService messagingService, ModelMapper modelMapper) {
+    public NotificationServiceImpl(NotificationRepository notificationRepository, UserRepository userRepository, MessagingService messagingService, ModelMapper modelMapper, NotificationJDBCRepository notificationJDBCRepository) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.messagingService = messagingService;
         this.modelMapper = modelMapper;
+        this.notificationJDBCRepository = notificationJDBCRepository;
     }
     
     @Override
@@ -56,12 +63,12 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public List<NotifyResponseDTO> getAllNotifyUser(String email, String type) {
+    public Optional<NotificationTableDTO> getAllNotifyUser(String email, String type) {
         User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
         if(type.equals("ALL")) {
             type = null;
         }
-        return notificationRepository.getAllNotifyByUserId(user.getId(), type);
+        return notificationJDBCRepository.getAllNotify(user.getId(), type);
     }
 
     @Override
@@ -77,6 +84,34 @@ public class NotificationServiceImpl implements NotificationService {
     public String removeNotify(Long notifyId) {
         notificationRepository.deleteById(notifyId);
         return "Remove notification successfully";
+    }
+    
+    @Transactional
+    @Override
+    public String markAsRead(String email, Long notifyId) {
+        try {
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+            notificationRepository.markAsRead(user.getId(), notifyId);
+            return "Notification marked as read successfully!";
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    @Override
+    public String markAllAsRead(String email) {
+        try {
+            User user = userRepository.findUserByEmail(email).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found."));
+            notificationRepository.markAllAsRead(user.getId());
+            return "Notification marked all as read successfully!";
+        } catch (WebException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
+        }
     }
     
     private NotifyOwnerResponseDTO mapToNotifyOwner(Notification notification) {

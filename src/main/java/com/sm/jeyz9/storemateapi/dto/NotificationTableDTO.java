@@ -7,16 +7,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
+@Builder
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-public class NotifyResponseDTO {
-    private Long id;
-    private String title;
-    private String message;
-    private LocalDateTime createdAt;
+public class NotificationTableDTO {
+    private List<NotifyResponseDTO> notifyList;
+    private int totalUnread;
+    private Map<NotifyTypeName, Integer> unreadByCategory;
 }

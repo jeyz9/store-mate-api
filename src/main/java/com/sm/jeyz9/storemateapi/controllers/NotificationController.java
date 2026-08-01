@@ -1,5 +1,6 @@
 package com.sm.jeyz9.storemateapi.controllers;
 
+import com.sm.jeyz9.storemateapi.dto.NotificationTableDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyOwnerResponseDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -61,7 +64,17 @@ public class NotificationController {
             """
     )
     @GetMapping("/notify")
-    public ResponseEntity<List<NotifyResponseDTO>> getNotifyUser(@RequestParam(required = false, defaultValue = "ALL") String type, Principal principal) {
+    public ResponseEntity<Optional<NotificationTableDTO>> getNotifyUser(@RequestParam(required = false, defaultValue = "ALL") String type, Principal principal) {
         return ResponseEntity.ok(notificationService.getAllNotifyUser(principal.getName(), type));
+    }
+    
+    @PutMapping("/notify/read")
+    public ResponseEntity<String> markAsRead(@RequestParam(required = true) Long notifyId, Principal principal) {
+        return ResponseEntity.ok(notificationService.markAsRead(principal.getName(), notifyId));
+    }
+    
+    @PutMapping("/notify/read/all")
+    public ResponseEntity<String> markAllAsRead(Principal principal) {
+        return ResponseEntity.ok(notificationService.markAllAsRead(principal.getName()));
     }
 }

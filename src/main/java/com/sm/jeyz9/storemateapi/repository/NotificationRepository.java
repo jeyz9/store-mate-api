@@ -1,36 +1,19 @@
 package com.sm.jeyz9.storemateapi.repository;
 
-import com.sm.jeyz9.storemateapi.dto.NotifyOwnerResponseDTO;
-import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
 import com.sm.jeyz9.storemateapi.models.Notification;
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    
-    @Query(value = """
-        SELECT DISTINCT n.id, n.title, n.message, n.created_at FROM notifications n
-        LEFT JOIN notification_recipients nr ON nr.notify_id = n.id
-        LEFT JOIN users u ON u.id = nr.recipient_id
-        LEFT JOIN user_role ur ON ur.user_id = u.id
-        LEFT JOIN roles r ON ur.role_id = r.id
-        WHERE (nr.recipient_id = :userId OR n.send_to IN ('ALL', r.role_name))
-          AND (COALESCE(:type, NULL) IS NULL OR n.notify_type IN (:type))
-        ORDER BY n.created_at DESC;
-    """, nativeQuery = true)
-    List<NotifyResponseDTO> getAllNotifyByUserId(@Param("userId") Long userId, @Param("type") String type);
-
-    @Query(value = """
-        SELECT DISTINCT n.id, n.title, n.message, n.send_to, n.created_at FROM notifications n WHERE n.send_to IN ('ALL', 'CUSTOMER', 'MODERATOR')
-    """, nativeQuery = true)
-    List<NotifyOwnerResponseDTO> getAllNotify();
     
     @Query(value = """
         SELECT n
@@ -44,5 +27,31 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         ORDER BY n.createdAt DESC
     """)
     Page<Notification> findNotification(@Param("keyword") String keyword, Pageable pageable);
-    
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+            INSERT INTO notification_recipients(notify_id, recipient_id, is_read)
+            VALUES (:notifyId, :userId, TRUE)
+            ON CONFLICT (notify_id, recipient_id)
+            DO UPDATE SET is_read = TRUE
+        """, nativeQuery = true)
+    int markAsRead(@Param("userId") Long userId, @Param("notifyId") Long notifyId);
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+        INSERT INTO notification_recipients(notify_id, recipient_id, is_read)
+        SELECT n.id, :userId, TRUE
+        FROM notifications n
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM notification_recipients nr
+            WHERE nr.notify_id = n.id
+            AND nr.recipient_id = :userId
+        )
+        ON CONFLICT (notify_id, recipient_id)
+        DO UPDATE SET is_read = TRUE
+    """, nativeQuery = true)
+    int markAllAsRead(@Param("userId") Long userId);
 }
