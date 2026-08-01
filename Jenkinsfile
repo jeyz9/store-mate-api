@@ -46,6 +46,7 @@ pipeline {
         IMAGE_NAME = "store-mate-api"
         DOCKER_HUB    = credentials('docker-hub-creds')
         SONAR_TOKEN = credentials('sonar-token')
+        ENV_LOCATION = credentials('env-location')
     }
 
     stages {
@@ -106,7 +107,7 @@ pipeline {
                 docker run -d -p 8081:8080 \
                 --name ${IMAGE_NAME} \
                 --restart always \
-                --env-file /home/ubuntu/app/.env \
+                --env-file ${ENV_LOCATION} \
                 ${REGISTRY_USER}/${IMAGE_NAME}:latest
                 '''
                 
