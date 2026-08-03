@@ -4,7 +4,8 @@ import com.sm.jeyz9.storemateapi.dto.NotificationTableDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
 import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -16,13 +17,13 @@ import java.util.Optional;
 
 @Repository
 public class NotificationJDBCRepository {
-    private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
-    
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
     @Autowired
-    public NotificationJDBCRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
-        this.jdbcTemplate = jdbcTemplate;
+    public NotificationJDBCRepository(ObjectMapper objectMapper, NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
         this.objectMapper = objectMapper;
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
     }
     
     public Optional<NotificationTableDTO> getAllNotify(Long userId, String type) {
@@ -63,7 +64,12 @@ public class NotificationJDBCRepository {
             WHERE (nr.recipient_id = :userId OR n.send_to IN ('ALL', r.role_name)) AND (nr.is_read IS FALSE OR nr.is_read IS NULL)
             LIMIT 1;
         """;
-        return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("userId", userId)
+                .addValue("type", type);
+        
+        return namedParameterJdbcTemplate.queryForObject(sql, params, (rs, rowNum) -> {
             String notifications = rs.getString("notifications");
             int totalUnread = rs.getInt("totalUnread");
             String unreadByCategory = rs.getString("unreadByCategory");
@@ -79,6 +85,6 @@ public class NotificationJDBCRepository {
             } catch (JacksonException e) {
                 throw new RuntimeException(e);
             }
-        }, userId, type);
+        });
     }
 }
