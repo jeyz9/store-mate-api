@@ -46,7 +46,7 @@ public class NotificationJDBCRepository {
                 ) AS notifications,
                 count(*) AS totalUnread,
                 (
-                    SELECT(COALESCE(json_agg(t), '[]')) FROM (SELECT DISTINCT n2.notify_type, COUNT(*)AS "unread" FROM notifications n2
+                    SELECT(COALESCE(json_agg(t), '[]')) FROM (SELECT DISTINCT n2.notify_type AS "notifyType", COUNT(*)AS "unread" FROM notifications n2
                     LEFT JOIN notification_recipients nr2 ON n2.id = nr2.notify_id
                     LEFT JOIN users u2 ON u2.id = nr2.recipient_id
                     LEFT JOIN user_role ur2 ON ur2.user_id = u2.id
