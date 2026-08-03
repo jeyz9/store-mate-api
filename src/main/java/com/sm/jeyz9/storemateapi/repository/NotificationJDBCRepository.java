@@ -30,7 +30,7 @@ public class NotificationJDBCRepository {
             SELECT
                 (
                     SELECT COALESCE(json_agg(t), '[]') FROM (
-                        SELECT DISTINCT n2.id, n2.title, n2.message, n2.created_at,
+                        SELECT DISTINCT n2.id, n2.title, n2.message, n2.created_at AS "createdAt",
                             (
                                 CASE WHEN n2.id IN (SELECT nr2.notify_id FROM notification_recipients nr2 WHERE nr2.recipient_id = :userId AND n2.id = nr2.notify_id LIMIT 1) THEN nr2.is_read ELSE FALSE END
                             ) AS "is_read"
