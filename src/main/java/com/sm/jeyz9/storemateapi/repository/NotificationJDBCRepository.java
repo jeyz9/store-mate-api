@@ -2,7 +2,7 @@ package com.sm.jeyz9.storemateapi.repository;
 
 import com.sm.jeyz9.storemateapi.dto.NotificationTableDTO;
 import com.sm.jeyz9.storemateapi.dto.NotifyResponseDTO;
-import com.sm.jeyz9.storemateapi.models.NotifyTypeName;
+import com.sm.jeyz9.storemateapi.dto.UnreadByCategoryDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -12,7 +12,6 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -76,7 +75,7 @@ public class NotificationJDBCRepository {
             
             try {
                 List<NotifyResponseDTO> notify = objectMapper.readValue(notifications, new TypeReference<List<NotifyResponseDTO>>() {});
-                Map<NotifyTypeName, Integer> unread = objectMapper.readValue(unreadByCategory, new TypeReference<Map<NotifyTypeName, Integer>>() {});
+                UnreadByCategoryDTO unread = objectMapper.readValue(unreadByCategory, new TypeReference<UnreadByCategoryDTO>() {});
                 return Optional.of(NotificationTableDTO.builder()
                         .notifyList(notify)
                         .totalUnread(totalUnread)
