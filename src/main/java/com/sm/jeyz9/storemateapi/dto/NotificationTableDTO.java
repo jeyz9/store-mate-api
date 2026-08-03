@@ -16,5 +16,5 @@ import java.util.List;
 public class NotificationTableDTO {
     private List<NotifyResponseDTO> notifyList;
     private int totalUnread;
-    private UnreadByCategoryDTO unreadByCategory;
+    private List<UnreadByCategoryDTO> unreadByCategory;
 }

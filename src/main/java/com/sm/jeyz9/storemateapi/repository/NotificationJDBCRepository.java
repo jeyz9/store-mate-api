@@ -75,7 +75,7 @@ public class NotificationJDBCRepository {
             
             try {
                 List<NotifyResponseDTO> notify = objectMapper.readValue(notifications, new TypeReference<List<NotifyResponseDTO>>() {});
-                UnreadByCategoryDTO unread = objectMapper.readValue(unreadByCategory, new TypeReference<UnreadByCategoryDTO>() {});
+                List<UnreadByCategoryDTO> unread = objectMapper.readValue(unreadByCategory, new TypeReference<List<UnreadByCategoryDTO>>() {});
                 return Optional.of(NotificationTableDTO.builder()
                         .notifyList(notify)
                         .totalUnread(totalUnread)
