@@ -33,7 +33,7 @@ public class NotificationJDBCRepository {
                         SELECT DISTINCT n2.id, n2.title, n2.message, n2.created_at AS "createdAt",
                             (
                                 CASE WHEN n2.id IN (SELECT nr2.notify_id FROM notification_recipients nr2 WHERE nr2.recipient_id = :userId AND n2.id = nr2.notify_id LIMIT 1) THEN nr2.is_read ELSE FALSE END
-                            ) AS "is_read"
+                            ) AS "isRead"
                         FROM notifications n2
                                  LEFT JOIN notification_recipients nr2 ON nr2.notify_id = n2.id
                                  LEFT JOIN users u2 ON u2.id = nr2.recipient_id
