@@ -55,7 +55,7 @@ public class OwnerDashboardService {
     }
     
     public OwnerDashboardDTO getAdminDashboard() {
-        return ownerDashboardRepository.findAdminDashboard().orElse(new OwnerDashboardDTO());
+        return ownerDashboardRepository.findOwnerDashboard().orElse(new OwnerDashboardDTO());
     }
     
     public SalesAnalyticsDashboardDTO salesAnalyticsDashboard(String period) {

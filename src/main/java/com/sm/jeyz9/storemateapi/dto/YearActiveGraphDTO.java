@@ -1,17 +1,20 @@
 package com.sm.jeyz9.storemateapi.dto;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class OrderChannelRateDTO {
-    private String orderChannel;
-    private BigDecimal avg;
+@Builder
+public class YearActiveGraphDTO {
+    private String year;
+    private Double totalIncome;
+    private List<YearGraphDTO> graph;
 }

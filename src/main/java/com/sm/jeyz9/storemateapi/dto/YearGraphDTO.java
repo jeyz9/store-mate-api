@@ -11,8 +11,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserChartDTO {
-    private Integer oldUser;
-    private Integer newUser;
-    private Integer inactiveUser;
+public class YearGraphDTO {
+    private Integer monthNo;
+    private String month;
+    private Double totalMonthlyIncome;
 }

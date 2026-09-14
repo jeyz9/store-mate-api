@@ -5,11 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ProductDashboardDTO {
-    private String productName;
-    private Integer stockQuantity; 
+public class YearActiveOrderChartDTO {
+    private Integer monthNo;
+    private String month;
+    private Integer total;
 }

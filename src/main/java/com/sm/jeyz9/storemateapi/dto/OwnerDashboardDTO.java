@@ -15,11 +15,18 @@ import java.util.List;
 @Builder
 public class OwnerDashboardDTO {
     private Integer activeUsers;
+    private Integer newUserToday;
+    private Integer totalRevenue;
+    private Integer totalOrder;
     private Integer newUsers;
-    private ActiveUserChartDTO weeklyActiveUsersChart;
-    private List<LatestOrderDTO> latestOrder;
-    private List<OrderChannelRateDTO> orderChannelRate;
+    private Integer totalProductSale;
+    private YearActiveIncomeChartDTO yearActiveIncomeChart;
+    private WeeklyActiveIncomeChartDTO weeklyActiveIncomeChart;
+    private List<YearActiveOrderChartDTO> yearActiveOrderChart;
+    private List<OrderChannelReteDTO> orderChannelRete;
+    private List<SalesPercentageDTO> salesPercentage;
+    private UserChartDTO userChart;
     private List<RegionalRevenueDTO> regionalRevenue;
-    private List<ProductDashboardDTO> products;
     private List<ReviewDashboardDTO> reviews;
+    private List<ProductAlertDTO> productAlert;
 }
