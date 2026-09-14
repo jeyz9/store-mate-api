@@ -5,12 +5,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class LatestOrderDTO {
-    private String orderNo;
-    private String name;
-    private String status;
+public class WeeklyActiveIncomeChartDTO {
+    private Double totalWeeklyIncome;
+    private List<WeeklyChartDTO> graph;
 }

@@ -11,8 +11,10 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserChartDTO {
-    private Integer oldUser;
-    private Integer newUser;
-    private Integer inactiveUser;
+public class ProductAlertDTO {
+    private Long id;
+    private String name;
+    private String imageUrl;
+    private String stockQuantity;
+    private String status;
 }
