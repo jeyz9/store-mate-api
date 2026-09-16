@@ -640,7 +640,6 @@ public class OwnerDashboardRepository {
                     (
                         SELECT SUM(o2.total_price) FROM orders o2
                         WHERE o2.created_at >= DATE_TRUNC('week', CURRENT_DATE)
-                        GROUP BY o2.created_at
                     ),
                     'graph',
                     (SELECT COALESCE(json_agg(t), '[]')
