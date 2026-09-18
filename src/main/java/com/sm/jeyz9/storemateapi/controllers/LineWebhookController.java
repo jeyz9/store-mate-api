@@ -38,9 +38,9 @@ public class LineWebhookController {
             @RequestHeader("X-Line-Signature") String signature,
             @RequestBody String body) {
 
-        /*if (!validateSignature(body, signature)) {
+        if (!validateSignature(body, signature)) {
             return ResponseEntity.status(401).body("Invalid signature");
-        }*/
+        }
 
         try {
             JsonNode root = objectMapper.readTree(body);
