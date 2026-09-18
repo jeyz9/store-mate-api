@@ -146,6 +146,8 @@ public class LinePaymentServiceImpl implements LinePaymentService {
                     .streetAddress(address.getStreetAddress())
                     .zipcode(address.getZipcode())
                     .createdAt(LocalDateTime.now())
+                    .recipientName(user.getName())
+                    .phone(user.getPhone())
                     .build();
             orderAddressRepository.save(orderAddress);
 
