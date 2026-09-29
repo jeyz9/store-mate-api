@@ -106,7 +106,7 @@ pipeline {
                 docker run -d -p 8081:8080 \
                 --name ${IMAGE_NAME} \
                 --restart always \
-                --env-file /home/ubuntu/app/.env \
+                --env-file /home/ubuntu/store-mate/config/backend/prod/.env \
                 ${REGISTRY_USER}/${IMAGE_NAME}:latest
                 '''
                 
