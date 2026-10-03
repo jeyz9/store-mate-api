@@ -669,6 +669,7 @@ public class LineMessageServiceImpl implements LineMessageService {
         infoBox.put("flex", 3);
         infoBox.put("contents", List.of(nameText, priceText));
 
+        // ─── ปุ่มลดจำนวน ─────────────────────────────────────
         Map<String, Object> decAction = new HashMap<>();
         decAction.put("type", "postback");
         decAction.put("label", "−");
@@ -676,20 +677,25 @@ public class LineMessageServiceImpl implements LineMessageService {
 
         Map<String, Object> decBtn = new HashMap<>();
         decBtn.put("type", "button");
-        decBtn.put("action", decAction);
         decBtn.put("style", "secondary");
         decBtn.put("height", "sm");
         decBtn.put("flex", 1);
+        decBtn.put("action", decAction);
 
+
+// ─── จำนวนสินค้า ─────────────────────────────────────
         Map<String, Object> qtyText = new HashMap<>();
         qtyText.put("type", "text");
         qtyText.put("text", String.valueOf(item.getQuantity()));
         qtyText.put("align", "center");
+        qtyText.put("gravity", "center");
         qtyText.put("weight", "bold");
         qtyText.put("size", "sm");
         qtyText.put("color", C_TEXT);
         qtyText.put("flex", 1);
 
+
+// ─── ปุ่มเพิ่มจำนวน ──────────────────────────────────
         Map<String, Object> incAction = new HashMap<>();
         incAction.put("type", "postback");
         incAction.put("label", "+");
@@ -697,12 +703,14 @@ public class LineMessageServiceImpl implements LineMessageService {
 
         Map<String, Object> incBtn = new HashMap<>();
         incBtn.put("type", "button");
-        incBtn.put("action", incAction);
         incBtn.put("style", "primary");
         incBtn.put("color", C_PRIMARY);
         incBtn.put("height", "sm");
         incBtn.put("flex", 1);
+        incBtn.put("action", incAction);
 
+
+// ─── ปุ่มลบ ──────────────────────────────────────────
         Map<String, Object> delAction = new HashMap<>();
         delAction.put("type", "postback");
         delAction.put("label", "ลบ");
@@ -710,26 +718,47 @@ public class LineMessageServiceImpl implements LineMessageService {
 
         Map<String, Object> delBtn = new HashMap<>();
         delBtn.put("type", "button");
-        delBtn.put("action", delAction);
         delBtn.put("style", "primary");
         delBtn.put("color", C_DANGER);
         delBtn.put("height", "sm");
-        delBtn.put("flex", 1);
+        delBtn.put("flex", 2);
+        delBtn.put("action", delAction);
 
+
+// ─── รวม − จำนวน + ลบ ให้อยู่บรรทัดเดียวกัน ─────────
         Map<String, Object> controlBox = new HashMap<>();
         controlBox.put("type", "box");
         controlBox.put("layout", "horizontal");
-        controlBox.put("flex", 2);
+        controlBox.put("spacing", "sm");
         controlBox.put("alignItems", "center");
-        controlBox.put("justifyContent", "space-between");
-        controlBox.put("contents", List.of(decBtn, qtyText, incBtn, delBtn));
+        controlBox.put("contents", List.of(
+                decBtn,
+                qtyText,
+                incBtn,
+                delBtn
+        ));
 
+        // แถวบน: รูป + ชื่อ + ราคา
+        Map<String, Object> productInfoRow = new HashMap<>();
+        productInfoRow.put("type", "box");
+        productInfoRow.put("layout", "horizontal");
+        productInfoRow.put("alignItems", "center");
+        productInfoRow.put("contents", List.of(image, infoBox));
+
+
+        // แถวล่าง: − จำนวน + ลบ
+        controlBox.put("margin", "md");
+
+
+        // รวมข้อมูลสินค้าและปุ่มควบคุม
         Map<String, Object> row = new HashMap<>();
         row.put("type", "box");
-        row.put("layout", "horizontal");
+        row.put("layout", "vertical");
         row.put("margin", "lg");
-        row.put("alignItems", "center");
-        row.put("contents", List.of(image, infoBox, controlBox));
+        row.put("contents", List.of(
+                productInfoRow,
+                controlBox
+        ));
 
         return row;
     }
