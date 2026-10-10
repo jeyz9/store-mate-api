@@ -23,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -462,15 +463,88 @@ public class OwnerDashboardRepository {
         }, period);
     }
 
-    public Optional<OwnerDashboardDTO> findOwnerDashboard() {
+    public Optional<OwnerDashboardDTO> findOwnerDashboard(
+            String salesPeriod,
+            LocalDate selectedDate,
+            String comparePeriod,
+            int fromYear,
+            int toYear
+    ) {
         String sql = """
-            WITH month AS (
+            WITH params AS (
+                SELECT ?::text AS sales_period, ?::date AS selected_date,
+                       ?::text AS compare_period, ?::int AS from_year, ?::int AS to_year
+            ),
+            month AS (
                 SELECT *
                 FROM generate_series(
-                             date_trunc('year', CURRENT_DATE),
-                             date_trunc('year', CURRENT_DATE) + INTERVAL '11 months',
-                             INTERVAL '1 month'
-                     ) AS m(month)
+                    date_trunc('year', CURRENT_DATE),
+                    date_trunc('year', CURRENT_DATE) + INTERVAL '11 months',
+                    INTERVAL '1 month'
+                ) AS m(month)
+            ),
+            sales_window AS (
+                SELECT sales_period,
+                    CASE sales_period
+                        WHEN 'YEAR' THEN date_trunc('year', selected_date::timestamp)
+                        WHEN 'MONTH' THEN date_trunc('month', selected_date::timestamp)
+                        WHEN 'DAY' THEN date_trunc('day', selected_date::timestamp)
+                    END AS start_at,
+                    CASE sales_period
+                        WHEN 'YEAR' THEN date_trunc('year', selected_date::timestamp) + INTERVAL '1 year'
+                        WHEN 'MONTH' THEN date_trunc('month', selected_date::timestamp) + INTERVAL '1 month'
+                        WHEN 'DAY' THEN date_trunc('day', selected_date::timestamp) + INTERVAL '1 day'
+                    END AS end_at
+                FROM params
+            ),
+            comparison_periods AS (
+                SELECT p.compare_period, years.year, n.period_no,
+                    make_date(years.year, 1, 1) + (n.period_no - 1) *
+                        CASE p.compare_period
+                            WHEN 'MONTH' THEN INTERVAL '1 month'
+                            WHEN 'QUARTER' THEN INTERVAL '3 months'
+                            ELSE INTERVAL '0 months'
+                        END AS start_at,
+                    CASE p.compare_period
+                        WHEN 'MONTH' THEN INTERVAL '1 month'
+                        WHEN 'QUARTER' THEN INTERVAL '3 months'
+                        ELSE INTERVAL '1 year'
+                    END AS period_size
+                FROM params p
+                CROSS JOIN LATERAL (
+                    SELECT yr.year
+                    FROM generate_series(p.from_year, p.to_year) AS yr(year)
+                    WHERE p.compare_period = 'YEAR'
+                    UNION
+                    SELECT p.from_year AS year
+                    WHERE p.compare_period <> 'YEAR'
+                    UNION
+                    SELECT p.to_year AS year
+                    WHERE p.compare_period <> 'YEAR'
+                ) years
+                CROSS JOIN LATERAL generate_series(
+                    1,
+                    CASE p.compare_period
+                        WHEN 'MONTH' THEN 12
+                        WHEN 'QUARTER' THEN 4
+                        ELSE 1
+                    END
+                ) AS n(period_no)
+            ),
+            comparison_sales AS (
+                SELECT cp.compare_period, cp.year, cp.period_no, cp.start_at,
+                       COALESCE(SUM(o.total_price), 0) AS total_sales
+                FROM comparison_periods cp
+                LEFT JOIN orders o
+                    ON o.created_at >= cp.start_at
+                   AND o.created_at < cp.start_at + cp.period_size
+                   AND o.status = 'COMPLETED'
+                GROUP BY cp.compare_period, cp.year, cp.period_no, cp.start_at
+            ),
+            comparison_year_totals AS (
+                SELECT year, COALESCE(SUM(total_sales), 0) AS total_income
+                FROM comparison_sales
+                GROUP BY year
             )
             SELECT
                 COUNT(
@@ -486,152 +560,136 @@ public class OwnerDashboardRepository {
                             END
                 ) AS "newUserToday",
                 (
-                        SELECT SUM(total_price) FROM orders WHERE status in ('COMPLETED')
+                    SELECT COALESCE(SUM(o.total_price), 0)
+                    FROM orders o CROSS JOIN sales_window w
+                    WHERE o.status = 'COMPLETED'
+                      AND o.created_at >= w.start_at AND o.created_at < w.end_at
                 ) AS "totalRevenue",
                 (
-                    SELECT COUNT(id) FROM orders WHERE status in ('COMPLETED')
+                    SELECT COUNT(o.id)
+                    FROM orders o CROSS JOIN sales_window w
+                    WHERE o.status = 'COMPLETED'
+                      AND o.created_at >= w.start_at AND o.created_at < w.end_at
                 ) AS "totalOrder",
-                COUNT (
-                        CASE
-                            WHEN DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
-                                THEN 1
-                            END
+                (
+                    SELECT COUNT(u.id)
+                    FROM users u CROSS JOIN sales_window w
+                    WHERE u.created_at >= w.start_at AND u.created_at < w.end_at
                 ) AS "newUsers",
                 (
-                    SELECT COUNT(oi2.quantity) FROM orders o2
-                    LEFT JOIN order_items oi2 ON oi2.order_id = o2.id
-                    WHERE o2.status in ('COMPLETED')
+                    SELECT COALESCE(SUM(oi2.quantity), 0)
+                    FROM orders o2 JOIN order_items oi2 ON oi2.order_id = o2.id
+                    CROSS JOIN sales_window w
+                    WHERE o2.status = 'COMPLETED'
+                      AND o2.created_at >= w.start_at AND o2.created_at < w.end_at
                 ) AS "totalProductSale",
             
                 (
-                    WITH
-                        summary AS (
-                            SELECT
-                                SUM(CASE WHEN o2.created_at >= date_trunc('year', current_date) THEN o2.total_price ELSE 0 END) AS "thisYear",
-                                SUM(CASE WHEN o2.created_at >= date_trunc('year', current_date) - INTERVAL '1 year' AND o2.created_at < date_trunc('year', current_date) THEN o2.total_price ELSE 0 END) AS "lastYear"
-                            FROM orders o2
-                        ),
-            
-                        totalIncome AS (
-                             SELECT
-                                 SUM(CASE WHEN o2.created_at >= date_trunc('year', current_date) THEN o2.total_price ELSE 0 END) AS "thisYear",
-                                 SUM(CASE WHEN o2.created_at >= date_trunc('year', current_date) - INTERVAL '1 year' AND o2.created_at < date_trunc('year', current_date) THEN o2.total_price ELSE 0 END) AS "lastYear"
-                             FROM orders o2
-                        )
                     SELECT json_build_object(
-                                   'growthRate',
-                                   (
-                                       SELECT
-                                           CASE WHEN "lastYear" != 0 THEN (("thisYear" - "lastYear") / "lastYear") * 100 ELSE 100 END
-                                       FROM summary
-                                       LIMIT 1
-                                   ),
-            
-                                   'thisYear',
-                                   (
-                                       SELECT json_build_object(
-                                                      'year',
-                                                      (
-                                                          SELECT extract(YEAR FROM CURRENT_DATE) AS "thisYear"
-                                                      ),
-                                                      'totalIncome',
-                                                      (
-                                                          SELECT "thisYear" FROM totalIncome
-                                                      ),
-                                                      'graph',
-                                                      (
-                                                          SELECT COALESCE(json_agg(t ORDER BY t."monthNo"), '[]')
-                                                          FROM (
-                                                                   SELECT
-                                                                       EXTRACT(MONTH FROM m.month)::INT AS "monthNo",
-            
-                                                                       CASE EXTRACT(MONTH FROM m.month)
-                                                                           WHEN 1 THEN 'มกราคม'
-                                                                           WHEN 2 THEN 'กุมภาพันธ์'
-                                                                           WHEN 3 THEN 'มีนาคม'
-                                                                           WHEN 4 THEN 'เมษายน'
-                                                                           WHEN 5 THEN 'พฤษภาคม'
-                                                                           WHEN 6 THEN 'มิถุนายน'
-                                                                           WHEN 7 THEN 'กรกฎาคม'
-                                                                           WHEN 8 THEN 'สิงหาคม'
-                                                                           WHEN 9 THEN 'กันยายน'
-                                                                           WHEN 10 THEN 'ตุลาคม'
-                                                                           WHEN 11 THEN 'พฤศจิกายน'
-                                                                           WHEN 12 THEN 'ธันวาคม'
-                                                                           END AS "month",
-            
-                                                                       COALESCE(SUM(o2.total_price), 0) AS "totalMonthlyIncome"
-            
-                                                                   FROM month m
-            
-                                                                            LEFT JOIN orders o2
-                                                                                      ON o2.created_at >= m.month
-                                                                                          AND o2.created_at < m.month + INTERVAL '1 month'
-                                                                                          AND o2.status = 'COMPLETED'
-            
-                                                                   GROUP BY m.month
-            
-                                                                   ORDER BY m.month
-                                                               ) t
-                                                      )
-                                              )
-                                   ),
-                                   'lastYear',
-                                   (
-                                       SELECT json_build_object(
-                                                      'year',
-                                                      (
-                                                          SELECT extract(YEAR FROM CURRENT_DATE  - INTERVAL '1 year') AS "lastYear"
-                                                      ),
-                                                      'totalIncome',
-                                                      (
-                                                          SELECT "lastYear" FROM totalIncome
-                                                      ),
-                                                      'graph',
-                                                      (
-                                                          SELECT COALESCE(json_agg(t ORDER BY t."monthNo"), '[]')
-                                                          FROM (
-                                                                   SELECT
-                                                                       EXTRACT(MONTH FROM m.month)::INT AS "monthNo",
-            
-                                                                       CASE EXTRACT(MONTH FROM m.month)
-                                                                           WHEN 1 THEN 'มกราคม'
-                                                                           WHEN 2 THEN 'กุมภาพันธ์'
-                                                                           WHEN 3 THEN 'มีนาคม'
-                                                                           WHEN 4 THEN 'เมษายน'
-                                                                           WHEN 5 THEN 'พฤษภาคม'
-                                                                           WHEN 6 THEN 'มิถุนายน'
-                                                                           WHEN 7 THEN 'กรกฎาคม'
-                                                                           WHEN 8 THEN 'สิงหาคม'
-                                                                           WHEN 9 THEN 'กันยายน'
-                                                                           WHEN 10 THEN 'ตุลาคม'
-                                                                           WHEN 11 THEN 'พฤศจิกายน'
-                                                                           WHEN 12 THEN 'ธันวาคม'
-                                                                           END AS "month",
-            
-                                                                       COALESCE(SUM(o2.total_price), 0) AS "totalMonthlyIncome"
-            
-                                                                   FROM month m
-            
-                                                                            LEFT JOIN orders o2
-                                                                                      ON o2.created_at >=
-                                                                                         date_trunc('year', CURRENT_DATE) - INTERVAL '1 year'
-                                                                                             + (EXTRACT(MONTH FROM m.month)::INT - 1) * INTERVAL '1 month'
-            
-                                                                                          AND o2.created_at <
-                                                                                              date_trunc('year', CURRENT_DATE) - INTERVAL '1 year'
-                                                                                                  + EXTRACT(MONTH FROM m.month)::INT * INTERVAL '1 month'
-            
-                                                                                          AND o2.status = 'COMPLETED'
-            
-                                                                   GROUP BY m.month
-            
-                                                                   ORDER BY m.month
-                                                               ) t
-                                                      )
-                                              )
-                                   )
-                           )
+                        'growthRate',
+                        CASE
+                            WHEN first_year.total_income = 0 THEN 100
+                            ELSE ROUND(
+                                ((last_year.total_income - first_year.total_income) * 100.0
+                                    / first_year.total_income)::numeric,
+                                2
+                            )
+                        END,
+                        'thisYear', (
+                            SELECT json_build_object(
+                                'year', p.from_year::text,
+                                'totalIncome', yt.total_income,
+                                'graph', (
+                                    SELECT COALESCE(json_agg(json_build_object(
+                                        'monthNo', cs.period_no,
+                                        'month', CASE cs.compare_period
+                                            WHEN 'MONTH' THEN CASE cs.period_no
+                                                WHEN 1 THEN 'มกราคม' WHEN 2 THEN 'กุมภาพันธ์'
+                                                WHEN 3 THEN 'มีนาคม' WHEN 4 THEN 'เมษายน'
+                                                WHEN 5 THEN 'พฤษภาคม' WHEN 6 THEN 'มิถุนายน'
+                                                WHEN 7 THEN 'กรกฎาคม' WHEN 8 THEN 'สิงหาคม'
+                                                WHEN 9 THEN 'กันยายน' WHEN 10 THEN 'ตุลาคม'
+                                                WHEN 11 THEN 'พฤศจิกายน' WHEN 12 THEN 'ธันวาคม'
+                                            END
+                                            WHEN 'QUARTER' THEN 'ไตรมาส ' || cs.period_no
+                                            ELSE cs.year::text
+                                        END,
+                                        'totalMonthlyIncome', cs.total_sales
+                                    ) ORDER BY cs.period_no), '[]')
+                                    FROM comparison_sales cs
+                                    WHERE cs.year = p.from_year
+                                )
+                            )
+                            FROM comparison_year_totals yt
+                            WHERE yt.year = p.from_year
+                        ),
+                        'lastYear', (
+                            SELECT json_build_object(
+                                'year', p.to_year::text,
+                                'totalIncome', yt.total_income,
+                                'graph', (
+                                    SELECT COALESCE(json_agg(json_build_object(
+                                        'monthNo', cs.period_no,
+                                        'month', CASE cs.compare_period
+                                            WHEN 'MONTH' THEN CASE cs.period_no
+                                                WHEN 1 THEN 'มกราคม' WHEN 2 THEN 'กุมภาพันธ์'
+                                                WHEN 3 THEN 'มีนาคม' WHEN 4 THEN 'เมษายน'
+                                                WHEN 5 THEN 'พฤษภาคม' WHEN 6 THEN 'มิถุนายน'
+                                                WHEN 7 THEN 'กรกฎาคม' WHEN 8 THEN 'สิงหาคม'
+                                                WHEN 9 THEN 'กันยายน' WHEN 10 THEN 'ตุลาคม'
+                                                WHEN 11 THEN 'พฤศจิกายน' WHEN 12 THEN 'ธันวาคม'
+                                            END
+                                            WHEN 'QUARTER' THEN 'ไตรมาส ' || cs.period_no
+                                            ELSE cs.year::text
+                                        END,
+                                        'totalMonthlyIncome', cs.total_sales
+                                    ) ORDER BY cs.period_no), '[]')
+                                    FROM comparison_sales cs
+                                    WHERE cs.year = p.to_year
+                                )
+                            )
+                            FROM comparison_year_totals yt
+                            WHERE yt.year = p.to_year
+                        ),
+                        'years', (
+                            SELECT COALESCE(json_agg(json_build_object(
+                                'year', yt.year::text,
+                                'totalIncome', yt.total_income,
+                                'graph', (
+                                    SELECT COALESCE(json_agg(json_build_object(
+                                        'monthNo', cs.period_no,
+                                        'month', CASE cs.compare_period
+                                            WHEN 'MONTH' THEN CASE cs.period_no
+                                                WHEN 1 THEN 'มกราคม' WHEN 2 THEN 'กุมภาพันธ์'
+                                                WHEN 3 THEN 'มีนาคม' WHEN 4 THEN 'เมษายน'
+                                                WHEN 5 THEN 'พฤษภาคม' WHEN 6 THEN 'มิถุนายน'
+                                                WHEN 7 THEN 'กรกฎาคม' WHEN 8 THEN 'สิงหาคม'
+                                                WHEN 9 THEN 'กันยายน' WHEN 10 THEN 'ตุลาคม'
+                                                WHEN 11 THEN 'พฤศจิกายน' WHEN 12 THEN 'ธันวาคม'
+                                            END
+                                            WHEN 'QUARTER' THEN 'ไตรมาส ' || cs.period_no
+                                            ELSE cs.year::text
+                                        END,
+                                        'totalMonthlyIncome', cs.total_sales
+                                    ) ORDER BY cs.period_no), '[]')
+                                    FROM comparison_sales cs
+                                    WHERE cs.year = yt.year
+                                )
+                            ) ORDER BY yt.year), '[]')
+                            FROM comparison_year_totals yt
+                        )
+                    )
+                    FROM params p
+                    CROSS JOIN LATERAL (
+                        SELECT COALESCE(total_income, 0) AS total_income
+                        FROM comparison_year_totals
+                        WHERE year = p.from_year
+                    ) first_year
+                    CROSS JOIN LATERAL (
+                        SELECT COALESCE(total_income, 0) AS total_income
+                        FROM comparison_year_totals
+                        WHERE year = p.to_year
+                    ) last_year
                 ) AS "yearActiveIncomeChart",
             
                 (
@@ -913,6 +971,6 @@ public class OwnerDashboardRepository {
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-        });
+        }, salesPeriod, selectedDate, comparePeriod, fromYear, toYear);
     }
 }
