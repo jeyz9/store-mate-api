@@ -16,4 +16,5 @@ public class YearActiveIncomeChartDTO {
     private BigDecimal growthRate;
     private YearActiveGraphDTO thisYear;
     private YearActiveGraphDTO lastYear;
+    private List<YearActiveGraphDTO> years;
 }
