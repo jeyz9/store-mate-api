@@ -32,10 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,8 +56,38 @@ public class OwnerDashboardService {
         this.zipcodeRepository = zipcodeRepository;
     }
     
-    public OwnerDashboardDTO getAdminDashboard() {
-        return ownerDashboardRepository.findOwnerDashboard().orElse(new OwnerDashboardDTO());
+    public OwnerDashboardDTO getAdminDashboard(
+            String salesPeriod,
+            LocalDate salesDate,
+            String comparePeriod,
+            Integer compareFromYear,
+            Integer compareToYear
+    ) {
+        LocalDate selectedDate = salesDate == null ? LocalDate.now() : salesDate;
+        int currentYear = selectedDate.getYear();
+        int fromYear = compareFromYear == null ? currentYear - 1 : compareFromYear;
+        int toYear = compareToYear == null ? currentYear : compareToYear;
+        if (fromYear > toYear) {
+            throw new WebException(HttpStatus.BAD_REQUEST, "compareFromYear must be less than or equal to compareToYear");
+        }
+
+        return ownerDashboardRepository.findOwnerDashboard(
+                normalizePeriod(salesPeriod, "YEAR", "MONTH", "DAY"),
+                selectedDate,
+                normalizePeriod(comparePeriod, "MONTH", "QUARTER", "YEAR"),
+                fromYear,
+                toYear
+        ).orElse(new OwnerDashboardDTO());
+    }
+
+    private String normalizePeriod(String value, String... allowedValues) {
+        String normalized = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+        for (String allowedValue : allowedValues) {
+            if (allowedValue.equals(normalized)) {
+                return normalized;
+            }
+        }
+        throw new WebException(HttpStatus.BAD_REQUEST, "Unsupported dashboard period: " + value);
     }
     
     public SalesAnalyticsDashboardDTO salesAnalyticsDashboard(String period) {
