@@ -96,6 +96,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         AND (
                 CAST(:end AS timestamp) IS NULL OR o.createdAt <= :end
             )
+        AND NOT EXISTS (
+                SELECT oi
+                FROM OrderItem oi
+                WHERE oi.order = o
+                  AND oi.product.productStatus.status = 'DELETED'
+            )
         ORDER BY o.createdAt DESC
     """)
     Page<Order> findOrders(
