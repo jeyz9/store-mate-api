@@ -21,12 +21,13 @@ public class RegisterDTO {
     private String email;
 
     @NotBlank(message = "Phone is required")
+    @Pattern(regexp = "^\\d{10}$", message = "Invalid phone number")
     private String phone;
 
     @NotBlank(message = "Password is required")
     @Pattern(
-            regexp = "^(?=.*[A-Za-z]).{8,}$",
-            message = "Must be at least 8 characters long and contain at least one letter (A–Z)."
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])[A-Za-z0-9!@#$%^&*()_+\\-=]{8,}$",
+            message = "Password does not meet requirements"
     )
     private String password;
     private String confirmPassword;
