@@ -20,6 +20,7 @@ import com.sm.jeyz9.storemateapi.models.Review;
 import com.sm.jeyz9.storemateapi.repository.CategoryRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductImageRepository;
 import com.sm.jeyz9.storemateapi.repository.ProductRepository;
+import com.sm.jeyz9.storemateapi.repository.ProductCategoryProjection;
 import com.sm.jeyz9.storemateapi.repository.ProductStatusRepository;
 import com.sm.jeyz9.storemateapi.repository.ReviewRepository;
 import com.sm.jeyz9.storemateapi.services.ProductService;
@@ -107,21 +108,21 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public ProductWithCategoryDTO getProductsWithCategory(){
         try {
-            List<Product> productList = productRepository.findAll();
-            List<ProductDTO> products = mapToProductDTO(productList);
-            products = products.stream().filter(p -> !p.isDeleted()).toList();
+            List<ProductDTO> products = productRepository.findProductsForCategoryLandingPage().stream()
+                    .map(this::mapToProductDTO)
+                    .toList();
             return ProductWithCategoryDTO.builder()
                     .promotion(
-                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).limit(4).toList()
+                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Promotion")).toList()
                     )
                     .soap(
-                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Soap")).limit(4).toList()
+                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Soap")).toList()
                     )
                     .drinks(
-                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Drinks")).limit(4).toList()
+                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Drinks")).toList()
                     )
                     .shampoo(
-                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Shampoo")).limit(4).toList()
+                            products.stream().filter(pp -> pp.getCategoryName().equalsIgnoreCase("Shampoo")).toList()
                     )
                     .build();
         }catch (Exception e) {
@@ -132,37 +133,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public PaginationDTO<ProductDTO> searchProducts(String keyword, Long categoryId, Double minPrice, Double maxPrice, int page, int size) {
         try{
-            List<Product> productList = productRepository.findAll();
-            Stream<Product> stream = productList.stream();
-            stream = stream.filter(p -> !p.isDeleted());
-            
-            if(keyword != null && !keyword.trim().isEmpty()){
-                stream = stream.filter(p -> p.getName().toLowerCase().contains(keyword.toLowerCase()));
-            }
-
-            if(categoryId != null){
-                stream = stream.filter(p -> p.getCategory().getId().equals(categoryId));
-            }
-            
-            if(minPrice != null) {
-                stream = stream.filter(p -> p.getPrice() >= minPrice);
-            }
-
-            if(maxPrice != null) {
-                stream = stream.filter(p -> p.getPrice() <= maxPrice);
-            }
-            
-            List<ProductDTO> products = mapToProductDTO(stream.toList());
             Pageable pageable = PageRequest.of(page, size);
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), products.size());
-            int total = products.size();
-            
-            List<ProductDTO> paginatedList = products.subList(start, end);
-            Page<ProductDTO> productsPage = new PageImpl<>(paginatedList, pageable, products.size());
-            
+            String normalizedKeyword = keyword == null ? "" : keyword.trim();
+            List<ProductDTO> products = productRepository.searchProducts(
+                            normalizedKeyword, categoryId, minPrice, maxPrice, size, pageable.getOffset())
+                    .stream()
+                    .map(this::mapToProductDTO)
+                    .toList();
+            int total = Math.toIntExact(productRepository.countSearchProducts(
+                    normalizedKeyword, categoryId, minPrice, maxPrice));
+
             PaginationDTO<ProductDTO> productPagination = new PaginationDTO<>();
-            productPagination.setData(productsPage.getContent());
+            productPagination.setData(products);
             productPagination.setPage(page);
             productPagination.setSize(size);
             productPagination.setTotal(total);
@@ -286,6 +268,20 @@ public class ProductServiceImpl implements ProductService {
                             .deleted(p.isDeleted())
                             .build()
         ).sorted(Comparator.comparing(ProductDTO::getCreatedAt)).toList();
+    }
+
+    private ProductDTO mapToProductDTO(ProductCategoryProjection product) {
+        return ProductDTO.builder()
+                .id(product.getId())
+                .productName(product.getProductName())
+                .categoryName(product.getCategoryName())
+                .description(product.getDescription())
+                .imageUrl(product.getImageUrl())
+                .price(product.getPrice())
+                .createdAt(product.getCreatedAt())
+                .productStatus(product.getProductStatus())
+                .deleted(Boolean.TRUE.equals(product.getDeleted()))
+                .build();
     }
     
     private List<ReviewDTO> mapToReviewDTO(List<Review> reviews) {
