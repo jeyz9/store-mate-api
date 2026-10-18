@@ -77,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
             Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Category not found."));
             Product product = Product.builder()
                     .id(null)
-                    .name(request.getProductName())
+                    .name(request.getProductName().trim())
                     .description(request.getDescription())
                     .productStatus(status)
                     .category(category)
@@ -222,7 +222,7 @@ public class ProductServiceImpl implements ProductService {
             ProductStatus status = productStatusRepository.findById(request.getStatusId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product Status not found."));
             Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Category not found."));
             Product product = productRepository.findById(id).orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "Product not found"));
-            product.setName(request.getProductName());
+            product.setName(request.getProductName().trim());
             product.setDescription(request.getDescription());
             product.setProductStatus(status);
             product.setCategory(category);

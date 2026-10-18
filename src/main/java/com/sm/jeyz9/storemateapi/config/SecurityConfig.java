@@ -14,7 +14,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-    
     private final JwtAuthenticationFilter jwtFilter;
     
     @Autowired
@@ -68,6 +67,10 @@ public class SecurityConfig {
 //                                        "/app/**",
                                         "/api/v1/orders/test-ws"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/v1/moderator/products",
+                                        "/api/v1/moderator/products/**"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/register",
@@ -76,12 +79,13 @@ public class SecurityConfig {
                                         "/api/v1/reviews/{orderItemId}",
                                         "/api/v1/line/webhook",
 
-                                        // TODO: for test
-                                        "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",
                                         "/api/v1/orders/payments/intent",
                                         "/api/v1/stripe/webhook"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.POST,
+                                        "/api/v1/moderator/products"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
                                 
                                 .requestMatchers(HttpMethod.GET, 
                                         "/api/v1/cart/items",
@@ -89,6 +93,7 @@ public class SecurityConfig {
                                         "/api/v1/users/me/addresses",
                                         "/api/v1/users/me/addresses/default",
                                         "/api/v1/owner/users",
+                                        "/api/v1/orders/{orderNo}/status",
                                         "/api/v1/reviews/order-item/{orderItemId}")
                                 .authenticated()
                                 
@@ -97,6 +102,10 @@ public class SecurityConfig {
                                         "/api/v1/cart/items",
                                         "/api/v1/users/me/addresses"
                                 ).authenticated()
+
+                                .requestMatchers(HttpMethod.PUT,
+                                        "/api/v1/moderator/products/{productId}"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
 
                                 .requestMatchers(HttpMethod.PUT,
                                         "/api/v1/users/me/overview",
@@ -114,6 +123,14 @@ public class SecurityConfig {
                                         "/api/v1/users/me/addresses/{id}"
                                 ).authenticated()
                                 
+                                .requestMatchers(HttpMethod.DELETE,
+                                        "/api/v1/moderator/products/{productId}"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
+
+                                .requestMatchers(HttpMethod.DELETE,
+                                        "/api/v1/owner/notify/{notifyId}"
+                                ).hasRole("ADMIN")
+
                                 .requestMatchers(HttpMethod.DELETE, 
                                         "/api/v1/cart/items/{productId}",
                                         "/api/v1/users/me/addresses/{id}",

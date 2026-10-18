@@ -41,15 +41,26 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO notification_recipients(notify_id, recipient_id, is_read)
-        SELECT n.id, :userId, TRUE
-        FROM notifications n
-        WHERE NOT EXISTS (
-            SELECT 1
+        WITH visible_notifications AS (
+            SELECT n.id
+            FROM notifications n
+            WHERE n.send_to = 'ALL'
+               OR n.send_to IN (
+                    SELECT r.role_name
+                    FROM user_role ur
+                    JOIN roles r ON r.id = ur.role_id
+                    WHERE ur.user_id = :userId
+               )
+
+            UNION
+
+            SELECT nr.notify_id
             FROM notification_recipients nr
-            WHERE nr.notify_id = n.id
-            AND nr.recipient_id = :userId
+            WHERE nr.recipient_id = :userId
         )
+        INSERT INTO notification_recipients(notify_id, recipient_id, is_read)
+        SELECT vn.id, :userId, TRUE
+        FROM visible_notifications vn
         ON CONFLICT (notify_id, recipient_id)
         DO UPDATE SET is_read = TRUE
     """, nativeQuery = true)

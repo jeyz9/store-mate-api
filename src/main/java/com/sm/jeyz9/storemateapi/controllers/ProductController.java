@@ -9,8 +9,10 @@ import com.sm.jeyz9.storemateapi.dto.ProductModDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductUpdateRequestDTO;
 import com.sm.jeyz9.storemateapi.dto.ProductWithCategoryDTO;
+import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.services.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -32,10 +34,12 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class ProductController {
     private final ProductService productService;
+    private final Validator validator;
     
     @Autowired
-    public ProductController(ProductService productService){
+    public ProductController(ProductService productService, Validator validator){
         this.productService = productService;
+        this.validator = validator;
     }
 
     @Operation(
@@ -73,6 +77,9 @@ public class ProductController {
 
         ObjectMapper mapper = new ObjectMapper();
         ProductRequestDTO request = mapper.readValue(requestJson, ProductRequestDTO.class);
+        validator.validate(request).stream().findFirst().ifPresent(violation -> {
+            throw new WebException(HttpStatus.BAD_REQUEST, violation.getMessage());
+        });
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.addProduct(request, files));
@@ -153,6 +160,9 @@ public class ProductController {
 
         ObjectMapper mapper = new ObjectMapper();
         ProductUpdateRequestDTO request = mapper.readValue(requestJson, ProductUpdateRequestDTO.class);
+        validator.validate(request).stream().findFirst().ifPresent(violation -> {
+            throw new WebException(HttpStatus.BAD_REQUEST, violation.getMessage());
+        });
 
         return ResponseEntity.status(HttpStatus.OK)
                 .body(productService.updateProduct(productId, request, files));

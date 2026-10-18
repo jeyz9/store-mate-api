@@ -11,12 +11,16 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
+import io.jsonwebtoken.JwtException;
 
 import java.io.IOException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
@@ -61,27 +65,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         String jwt = authHeader.substring(7);
         String username;
-        
-        try{
+
+        try {
             username = jwtService.extractUsername(jwt);
-        }catch (Exception e) {
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("Rejected JWT for {} {} while reading subject ({})",
+                    request.getMethod(), path, e.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
-                        {
-                            "status": 401,
-                            "message: "Invalid or expired JWT token"
-                        }
+                    {
+                      "status": 401,
+                      "message": "Unauthorized or invalid token"
+                    }
                     """);
             return;
         }
         
         if(username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if(jwtService.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    log.warn("Rejected JWT for {} {} because validation returned false",
+                            request.getMethod(), path);
+                }
+            } catch (JwtException | IllegalArgumentException e) {
+                log.warn("Rejected JWT for {} {} during validation ({})",
+                        request.getMethod(), path, e.getClass().getSimpleName());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("""
+                        {
+                          "status": 401,
+                          "message": "Unauthorized or invalid token"
+                        }
+                        """);
+                return;
             }
         }
         filterChain.doFilter(request, response);
