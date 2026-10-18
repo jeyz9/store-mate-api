@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProductServiceTest {
 
+
     @Test
     void searchProductsPassesFiltersAndPaginationToRepository() {
         AtomicReference<Object[]> queryArgs = new AtomicReference<>();

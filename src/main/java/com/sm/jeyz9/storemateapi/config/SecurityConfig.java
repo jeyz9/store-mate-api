@@ -10,10 +10,13 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
     
     private final JwtAuthenticationFilter jwtFilter;
     
@@ -31,6 +34,7 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> {
+                            log.warn("Unauthenticated {} request to {}", req.getMethod(), req.getRequestURI());
                             res.setStatus(401);
                             res.setContentType("application/json");
                             res.getWriter().write("""
@@ -41,6 +45,11 @@ public class SecurityConfig {
                     """);
                         })
                         .accessDeniedHandler((req, res, e) -> {
+                            var authentication = org.springframework.security.core.context.SecurityContextHolder
+                                    .getContext().getAuthentication();
+                            log.warn("Forbidden {} request to {} for authorities {}",
+                                    req.getMethod(), req.getRequestURI(),
+                                    authentication == null ? "none" : authentication.getAuthorities());
                             res.setStatus(403);
                             res.setContentType("application/json");
                             res.getWriter().write("""
@@ -68,6 +77,10 @@ public class SecurityConfig {
 //                                        "/app/**",
                                         "/api/v1/orders/test-ws"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/v1/moderator/products",
+                                        "/api/v1/moderator/products/**"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
                                 .requestMatchers(HttpMethod.POST,
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/register",
@@ -76,12 +89,13 @@ public class SecurityConfig {
                                         "/api/v1/reviews/{orderItemId}",
                                         "/api/v1/line/webhook",
 
-                                        // TODO: for test
-                                        "/api/v1/moderator/products",
                                         "/api/v1/orders/test/payments",
                                         "/api/v1/orders/payments/intent",
                                         "/api/v1/stripe/webhook"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.POST,
+                                        "/api/v1/moderator/products"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
                                 
                                 .requestMatchers(HttpMethod.GET, 
                                         "/api/v1/cart/items",
@@ -89,6 +103,7 @@ public class SecurityConfig {
                                         "/api/v1/users/me/addresses",
                                         "/api/v1/users/me/addresses/default",
                                         "/api/v1/owner/users",
+                                        "/api/v1/orders/{orderNo}/status",
                                         "/api/v1/reviews/order-item/{orderItemId}")
                                 .authenticated()
                                 
@@ -97,6 +112,10 @@ public class SecurityConfig {
                                         "/api/v1/cart/items",
                                         "/api/v1/users/me/addresses"
                                 ).authenticated()
+
+                                .requestMatchers(HttpMethod.PUT,
+                                        "/api/v1/moderator/products/{productId}"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
 
                                 .requestMatchers(HttpMethod.PUT,
                                         "/api/v1/users/me/overview",
@@ -114,6 +133,14 @@ public class SecurityConfig {
                                         "/api/v1/users/me/addresses/{id}"
                                 ).authenticated()
                                 
+                                .requestMatchers(HttpMethod.DELETE,
+                                        "/api/v1/moderator/products/{productId}"
+                                ).hasAnyRole("ADMIN", "MODERATOR")
+
+                                .requestMatchers(HttpMethod.DELETE,
+                                        "/api/v1/owner/notify/{notifyId}"
+                                ).hasRole("ADMIN")
+
                                 .requestMatchers(HttpMethod.DELETE, 
                                         "/api/v1/cart/items/{productId}",
                                         "/api/v1/users/me/addresses/{id}",

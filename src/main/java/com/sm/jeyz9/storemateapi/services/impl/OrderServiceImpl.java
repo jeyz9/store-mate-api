@@ -1,5 +1,7 @@
 package com.sm.jeyz9.storemateapi.services.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sm.jeyz9.storemateapi.dto.NotificationDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderAddressDTO;
 import com.sm.jeyz9.storemateapi.dto.OrderDTO;
@@ -42,7 +44,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,10 +52,11 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -67,9 +69,10 @@ public class OrderServiceImpl implements OrderService {
     private final RefundRequestRepository refundRequestRepository;
     private final ReviewRepository reviewRepository;
     private final MessagingService messagingService;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository, ReviewRepository reviewRepository, MessagingService messagingService) {
+    public OrderServiceImpl(OrderRepository orderRepository, UserRepository userRepository, OrderStatusHistoryRepository orderStatusHistoryRepository, ModelMapper modelMapper, StoreInfoRepository storeInfoRepository, RefundRequestRepository refundRequestRepository, ReviewRepository reviewRepository, MessagingService messagingService, ObjectMapper objectMapper) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -78,22 +81,17 @@ public class OrderServiceImpl implements OrderService {
         this.refundRequestRepository = refundRequestRepository;
         this.reviewRepository = reviewRepository;
         this.messagingService = messagingService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<OrderDTO> getUserOrders(OrderStatusName status, String email) {
         try {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
-            List<Order> orders;
-            if(status.equals(OrderStatusName.ALL)) {
-                orders = orderRepository.findAllByUser(user);
-            }else {
-                orders = orderRepository.findAllByUserAndStatus(user, status);
-            }
-            
-            return mapToDTO(orders);
+            return mapUserOrdersJson(orderRepository.findUserOrdersJson(user.getId(), status.name()));
         } catch (Exception e) {
             e.printStackTrace();
             throw new WebException(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error: " + e.getMessage());
@@ -102,7 +100,11 @@ public class OrderServiceImpl implements OrderService {
     
     @Override
     public String getOrderStatus(String orderNo) {
-        return orderRepository.findOrderStatusByOrderNo(orderNo);
+        String status = orderRepository.findOrderStatusByOrderNo(orderNo);
+        if (status == null) {
+            throw new WebException(HttpStatus.NOT_FOUND, "Order not found");
+        }
+        return status;
     }
 
     @Override
@@ -161,18 +163,26 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        Pageable pageable = PageRequest.of(
-                page,
-                size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        Pageable pageable = PageRequest.of(page, size);
 
-        return orderRepository.findOrders(
+        Page<OrderRepository.ModeratorOrderProjection> orders = orderRepository.findOrders(
                 keyword,
                 start,
                 end,
                 pageable
-        ).map(this::mapToOrderModDTO);
+        );
+
+        return orders.map(order -> OrderModDTO.builder()
+                .id(order.getId())
+                .orderNo(order.getOrderNo())
+                .recipientName(order.getRecipientName())
+                .phone(order.getPhone())
+                .createdAt(order.getCreatedAt())
+                .total(order.getTotal())
+                .shippingFrom(order.getShippingFrom())
+                .status(order.getStatus())
+                .printed(Boolean.TRUE.equals(order.getPrinted()))
+                .build());
     }
 
     @Override
@@ -381,88 +391,64 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
     
-    private List<OrderDTO> mapToDTO(List<Order> orders) {
-        return orders.stream().map(
-                o -> {
-                    Set<OrderItemDTO> orderItems = o.getOrderItems().stream().map(item -> {
-                        Product product = item.getProduct();
-                        
-                        String imageUrl = product.getProductImage().stream().findFirst().map(ProductImage::getImageUrl).orElse(null);
-                        
-                        return OrderItemDTO.builder()
-                                .id(item.getId())
-                                .imageUrl(imageUrl)
-                                .productName(product.getName())
-                                .price(product.getPrice())
-                                .quantity(item.getQuantity())
-                                .subTotal(product.getPrice() * item.getQuantity())
-                                .review(reviewRepository.existsByOrderItemId(item.getId()))
-                                .build();
-                    }).collect(Collectors.toSet());
-                    
-                    Set<OrderAddressDTO> orderAddress = o.getOrderAddresses().stream().map(
-                            a -> OrderAddressDTO.builder()
-                                    .id(a.getId())
-                                    .streetAddress(a.getStreetAddress())
-                                    .subdistrict(a.getZipcode().getSubdistrict().getName())
-                                    .district(a.getZipcode().getDistrict().getName())
-                                    .province(a.getZipcode().getProvince().getName())
-                                    .zipcode(a.getZipcode().getZipcode())
-                                    .build()
-                    ).collect(Collectors.toSet());
+    private List<OrderDTO> mapUserOrdersJson(String ordersJson) throws Exception {
+        JsonNode orders = objectMapper.readTree(ordersJson);
+        List<OrderDTO> result = new ArrayList<>();
 
-                    String refundReason = null;
-                    if(!o.getRefundRequest().isEmpty()) {
-                        refundReason = o.getRefundRequest().stream().sorted(Comparator.comparing(RefundRequest::getRequestedAt)).findFirst().get().getReason();
-                    }
-                    
-                    return OrderDTO.builder()
-                            .id(o.getId())
-                            .orderNo(o.getOrderNo())
-                            .orderItems(orderItems)
-                            .orderAddress(orderAddress)
-                            .status(o.getStatus().toString())
-                            .checkoutType(o.getCheckoutType() != null ? o.getCheckoutType().name() : null)
-                            .total(o.getTotalPrice())
-                            .createdAt(o.getCreatedAt())
-                            .reason(refundReason)
-                            .build();
-                }
-        ).toList();
+        for (JsonNode order : orders) {
+            Set<OrderItemDTO> items = new HashSet<>();
+            for (JsonNode item : order.path("orderItems")) {
+                items.add(OrderItemDTO.builder()
+                        .id(item.path("id").asLong())
+                        .productName(nullableText(item, "productName"))
+                        .imageUrl(nullableText(item, "imageUrl"))
+                        .price(nullableDouble(item, "price"))
+                        .quantity(item.path("quantity").asInt())
+                        .subTotal(nullableDouble(item, "subTotal"))
+                        .review(item.path("is_review").asBoolean())
+                        .build());
+            }
+
+            Set<OrderAddressDTO> addresses = new HashSet<>();
+            for (JsonNode address : order.path("orderAddress")) {
+                addresses.add(OrderAddressDTO.builder()
+                        .id(address.path("id").asLong())
+                        .recipientName(nullableText(address, "recipientName"))
+                        .phone(nullableText(address, "phone"))
+                        .streetAddress(nullableText(address, "streetAddress"))
+                        .subdistrict(nullableText(address, "subdistrict"))
+                        .district(nullableText(address, "district"))
+                        .province(nullableText(address, "province"))
+                        .zipcode(nullableText(address, "zipcode"))
+                        .build());
+            }
+
+            result.add(OrderDTO.builder()
+                    .id(order.path("id").asLong())
+                    .orderNo(nullableText(order, "orderNo"))
+                    .status(nullableText(order, "status"))
+                    .checkoutType(nullableText(order, "checkoutType"))
+                    .total(nullableDouble(order, "total"))
+                    .createdAt(order.hasNonNull("createdAt")
+                            ? LocalDateTime.parse(order.path("createdAt").asText())
+                            : null)
+                    .reason(nullableText(order, "reason"))
+                    .orderItems(items)
+                    .orderAddress(addresses)
+                    .build());
+        }
+
+        return result;
     }
 
-    private OrderModDTO mapToOrderModDTO(Order o) {
-
-        Double total = o.getOrderItems()
-                .stream()
-                .mapToDouble(oi -> oi.getProduct().getPrice() * oi.getQuantity())
-                .sum();
-
-        OrderAddress address = o.getOrderAddresses()
-                .stream()
-                .findFirst()
-                .orElse(null);
-
-        return OrderModDTO.builder()
-                .id(o.getId())
-                .orderNo(o.getOrderNo())
-                .recipientName(address != null ? address.getRecipientName() : null)
-                .phone(address != null ? address.getPhone() : null)
-                .createdAt(o.getCreatedAt())
-                .total(total)
-                .shippingFrom(
-                        o.getOrderChannel() != null
-                                ? o.getOrderChannel().name()
-                                : null
-                )
-                .status(
-                        o.getStatus() != null
-                                ? o.getStatus().name()
-                                : null
-                )
-                .build();
+    private String nullableText(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.path(field).asText() : null;
     }
-    
+
+    private Double nullableDouble(JsonNode node, String field) {
+        return node.hasNonNull(field) ? node.path(field).asDouble() : null;
+    }
+
     private String formatAddress(String address, Zipcode zipcode) {
         return String.format(
                 "%s %s %s %s %s",

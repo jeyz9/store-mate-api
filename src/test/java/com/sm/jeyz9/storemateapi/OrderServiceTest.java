@@ -2,6 +2,8 @@ package com.sm.jeyz9.storemateapi;
 
 import com.sm.jeyz9.storemateapi.exceptions.WebException;
 import com.sm.jeyz9.storemateapi.models.Order;
+import com.sm.jeyz9.storemateapi.models.OrderStatusName;
+import com.sm.jeyz9.storemateapi.dto.OrderModDTO;
 import com.sm.jeyz9.storemateapi.repository.OrderRepository;
 import com.sm.jeyz9.storemateapi.repository.OrderStatusHistoryRepository;
 import com.sm.jeyz9.storemateapi.repository.RefundRequestRepository;
@@ -10,6 +12,7 @@ import com.sm.jeyz9.storemateapi.repository.StoreInfoRepository;
 import com.sm.jeyz9.storemateapi.repository.UserRepository;
 import com.sm.jeyz9.storemateapi.services.MessagingService;
 import com.sm.jeyz9.storemateapi.services.impl.OrderServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.modelmapper.ModelMapper;
@@ -44,7 +47,8 @@ class OrderServiceTest {
                 proxy(StoreInfoRepository.class, (proxy, method, args) -> null),
                 proxy(RefundRequestRepository.class, (proxy, method, args) -> null),
                 proxy(ReviewRepository.class, (proxy, method, args) -> null),
-                new MessagingService(null, null, null, null)
+                new MessagingService(null, null, null, null),
+                new ObjectMapper()
         );
     }
 
@@ -77,12 +81,47 @@ class OrderServiceTest {
         assertEquals(0, orderRepository.callCount);
     }
 
+    @Test
+    void getAllOrdersMapsTheCurrentPageProjection() {
+        orderRepository.results = List.of(new OrderRepository.ModeratorOrderProjection() {
+            @Override public Long getId() { return 42L; }
+            @Override public String getOrderNo() { return "ORD-TEST-42"; }
+            @Override public String getRecipientName() { return "Test Recipient"; }
+            @Override public String getPhone() { return "0812345678"; }
+            @Override public LocalDateTime getCreatedAt() { return LocalDateTime.now(); }
+            @Override public Double getTotal() { return 200.0; }
+            @Override public String getShippingFrom() { return "WEBSITE"; }
+            @Override public String getStatus() { return "PENDING"; }
+            @Override public Boolean getPrinted() { return false; }
+        });
+
+        Page<OrderModDTO> result = orderService.getAllOrders(null, null, null, null, 0, 10);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("ORD-TEST-42", result.getContent().getFirst().getOrderNo());
+        assertEquals(0, orderRepository.itemFetchCount);
+        assertEquals(0, orderRepository.addressFetchCount);
+    }
+
+    @Test
+    void getOrderStatusThrowsNotFoundWhenOrderDoesNotExist() {
+        WebException exception = assertThrows(WebException.class, () ->
+                orderService.getOrderStatus("ORD-DOES-NOT-EXIST")
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        assertEquals("Order not found", exception.getMessage());
+    }
+
     private static class RecordingOrderRepository implements InvocationHandler {
         private String keyword;
         private LocalDateTime start;
         private LocalDateTime end;
         private Pageable pageable;
         private int callCount;
+        private int itemFetchCount;
+        private int addressFetchCount;
+        private List<OrderRepository.ModeratorOrderProjection> results = List.of();
 
         private OrderRepository asRepository() {
             return proxy(OrderRepository.class, this);
@@ -96,7 +135,15 @@ class OrderServiceTest {
                 end = (LocalDateTime) args[2];
                 pageable = (Pageable) args[3];
                 callCount++;
-                return new PageImpl<>(List.<Order>of(), pageable, 0);
+                return new PageImpl<>(results, pageable, results.size());
+            }
+            if (method.getName().equals("fetchOrderItemsByOrderIds")) {
+                itemFetchCount++;
+                return results;
+            }
+            if (method.getName().equals("fetchOrderAddressesByOrderIds")) {
+                addressFetchCount++;
+                return results;
             }
             if (method.getName().equals("findOrderStatusByOrderNo")) {
                 return null;

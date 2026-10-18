@@ -499,12 +499,16 @@ public class PaymentService {
             User user = userRepository.findUserByEmail(email)
                     .orElseThrow(() -> new WebException(HttpStatus.NOT_FOUND, "User not found"));
 
+            if (order.getUser() == null || !order.getUser().getId().equals(user.getId())) {
+                throw new WebException(HttpStatus.FORBIDDEN, "Order does not belong to this user");
+            }
+
             OrderStatusName status =
                     request.getCheckoutType().equals(CheckoutTypeName.DESTINATION)
                             ? OrderStatusName.PROCESSING
                             : OrderStatusName.PENDING;
 
-            Order createOrder = createOrder(user, order.getCheckoutType(), status);
+            Order createOrder = createOrder(user, request.getCheckoutType(), status);
 
             List<OrderItem> orderItems = order.getOrderItems().stream().map(item -> {
 
@@ -542,15 +546,15 @@ public class PaymentService {
             orderItemRepository.saveAll(orderItems);
 
             double totalPrice = orderItems.stream().mapToDouble(o -> o.getUnitPrice() * o.getQuantity()).sum();
-            order.setTotalPrice(totalPrice);
+            createOrder.setTotalPrice(totalPrice);
 
-            handleCreateOrderAddress(user, order);
+            handleCreateOrderAddress(user, createOrder);
 
             Map<String, String> res = new HashMap<>();
 
             if (
-                    order.getCheckoutType().equals(CheckoutTypeName.CARD)
-                            || order.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)
+                    createOrder.getCheckoutType().equals(CheckoutTypeName.CARD)
+                            || createOrder.getCheckoutType().equals(CheckoutTypeName.PROMPTPAY)
             ) {
 
                 long total = (long) (
@@ -565,23 +569,24 @@ public class PaymentService {
 
                 PaymentIntent intent = handleStripeIntent(total, user.getEmail());
 
-                order.setStripePaymentIntent(intent.getId());
-                order.setClientSecret(intent.getClientSecret());
-                order.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
-                order.setUpdatedAt(LocalDateTime.now());
+                createOrder.setStripePaymentIntent(intent.getId());
+                createOrder.setClientSecret(intent.getClientSecret());
+                createOrder.setPaymentExpired(LocalDateTime.now().plusMinutes(15));
+                createOrder.setUpdatedAt(LocalDateTime.now());
 
-                orderRepository.save(order);
+                orderRepository.save(createOrder);
 
-                res.put("orderNo", order.getOrderNo());
+                res.put("orderNo", createOrder.getOrderNo());
                 res.put("clientSecret", intent.getClientSecret());
                 res.put("paymentIntentId", intent.getId());
-                res.put("paymentExpired", order.getPaymentExpired().toString());
+                res.put("paymentExpired", createOrder.getPaymentExpired().toString());
 
                 return res;
             }
 
             res.put("message", "create order success");
-            res.put("orderNo", order.getOrderNo());
+            orderRepository.save(createOrder);
+            res.put("orderNo", createOrder.getOrderNo());
 
             return res;
 

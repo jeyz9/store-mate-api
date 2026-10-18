@@ -13,6 +13,8 @@ import lombok.Setter;
 @Builder
 public class OrderAddressDTO {
     private Long id;
+    private String recipientName;
+    private String phone;
     private String streetAddress;
     private String subdistrict;
     private String district;
