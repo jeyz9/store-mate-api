@@ -19,37 +19,81 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByStripePaymentIntent(String stripePaymentIntent);
 
-    @Query(value = """
-        SELECT DISTINCT o FROM Order o
-        LEFT JOIN FETCH o.orderItems oi
-        LEFT JOIN FETCH oi.product p
-        LEFT JOIN FETCH p.productImage
-        LEFT JOIN FETCH o.orderAddresses oa
-        LEFT JOIN FETCH oa.zipcode z
-        LEFT JOIN FETCH z.subdistrict
-        LEFT JOIN FETCH z.district
-        LEFT JOIN FETCH z.province
-        LEFT JOIN FETCH o.refundRequest
-        WHERE o.user = :user AND o.status = :status
-        ORDER BY o.updatedAt DESC
-    """)
-    List<Order> findAllByUserAndStatus(@Param("user") User user, @Param("status") OrderStatusName status);
+    List<Order> findAllByUser(User user);
 
     @Query(value = """
-        SELECT DISTINCT o FROM Order o
-        LEFT JOIN FETCH o.orderItems oi
-        LEFT JOIN FETCH oi.product p
-        LEFT JOIN FETCH p.productImage
-        LEFT JOIN FETCH o.orderAddresses oa
-        LEFT JOIN FETCH oa.zipcode z
-        LEFT JOIN FETCH z.subdistrict
-        LEFT JOIN FETCH z.district
-        LEFT JOIN FETCH z.province
-        LEFT JOIN FETCH o.refundRequest rr
-        WHERE o.user = :user
-        ORDER BY o.updatedAt DESC
-    """)
-    List<Order> findAllByUser(@Param("user") User user);
+        SELECT COALESCE(json_agg(json_build_object(
+            'id', o.id,
+            'orderNo', o.order_no,
+            'status', o.status,
+            'checkoutType', o.checkout_type,
+            'total', o.total_price,
+            'createdAt', o.created_at,
+            'reason', (
+                SELECT rr.reason
+                FROM refund_requests rr
+                WHERE rr.order_id = o.id
+                ORDER BY rr.requested_at
+                LIMIT 1
+            ),
+            'orderItems', COALESCE((
+                SELECT json_agg(json_build_object(
+                    'id', oi.id,
+                    'productName', p.name,
+                    'imageUrl', (
+                        SELECT pi.image_url
+                        FROM product_images pi
+                        WHERE pi.product_id = p.id
+                        ORDER BY pi.id
+                        LIMIT 1
+                    ),
+                    'price', p.price,
+                    'quantity', oi.quantity,
+                    'subTotal', p.price * oi.quantity,
+                    'is_review', EXISTS (
+                        SELECT 1 FROM reviews r WHERE r.order_item_id = oi.id
+                    )
+                ) ORDER BY oi.id)
+                FROM order_items oi
+                JOIN products p ON p.id = oi.product_id
+                WHERE oi.order_id = o.id
+            ), '[]'::json),
+            'orderAddress', COALESCE((
+                SELECT json_agg(json_build_object(
+                    'id', oa.id,
+                    'recipientName', oa.recipient_name,
+                    'phone', oa.phone,
+                    'streetAddress', oa.street_address,
+                    'subdistrict', sd.name,
+                    'district', d.name,
+                    'province', pr.name,
+                    'zipcode', z.zipcode
+                ) ORDER BY oa.id)
+                FROM order_address oa
+                JOIN zipcode z ON z.id = oa.zipcode_id
+                JOIN subdistricts sd ON sd.id = z.subdistrict_id
+                JOIN districts d ON d.id = z.district_id
+                JOIN provinces pr ON pr.id = z.province_id
+                WHERE oa.order_id = o.id
+            ), '[]'::json)
+        ) ORDER BY o.updated_at DESC), '[]'::json)::text
+        FROM orders o
+        WHERE o.user_id = :userId
+          AND (:status = 'ALL' OR o.status = :status)
+        """, nativeQuery = true)
+    String findUserOrdersJson(@Param("userId") Long userId, @Param("status") String status);
+
+    interface ModeratorOrderProjection {
+        Long getId();
+        String getOrderNo();
+        String getRecipientName();
+        String getPhone();
+        LocalDateTime getCreatedAt();
+        Double getTotal();
+        String getShippingFrom();
+        String getStatus();
+        Boolean getPrinted();
+    }
 
     @EntityGraph(attributePaths = {
             "orderItems",
@@ -80,31 +124,58 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     })
     Optional<Order> findOneByOrderNo(String orderNo);
 
-    @Query("""
-        SELECT o
-        FROM Order o
-        LEFT JOIN o.orderAddresses oa
-        WHERE
-            (
-                :keyword IS NULL
-                OR LOWER(oa.recipientName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR oa.phone = :keyword
-            )
-        AND (
-                CAST(:start AS timestamp) IS NULL OR o.createdAt >= :start
-            )
-        AND (
-                CAST(:end AS timestamp) IS NULL OR o.createdAt <= :end
-            )
-        AND NOT EXISTS (
-                SELECT oi
-                FROM OrderItem oi
-                WHERE oi.order = o
-                  AND oi.product.productStatus.status = 'DELETED'
-            )
-        ORDER BY o.createdAt DESC
-    """)
-    Page<Order> findOrders(
+    @Query(value = """
+        SELECT o.id AS "id",
+               o.order_no AS "orderNo",
+               (SELECT oa.recipient_name FROM order_address oa
+                WHERE oa.order_id = o.id ORDER BY oa.id LIMIT 1) AS "recipientName",
+               (SELECT oa.phone FROM order_address oa
+                WHERE oa.order_id = o.id ORDER BY oa.id LIMIT 1) AS "phone",
+               o.created_at AS "createdAt",
+               COALESCE((SELECT SUM(oi.quantity * p.price)
+                         FROM order_items oi
+                         JOIN products p ON p.id = oi.product_id
+                         WHERE oi.order_id = o.id), 0)::double precision AS "total",
+               o.order_channel AS "shippingFrom",
+               o.status AS "status",
+               o.printed AS "printed"
+        FROM orders o
+        WHERE (:keyword IS NULL OR EXISTS (
+                  SELECT 1 FROM order_address oa
+                  WHERE oa.order_id = o.id
+                    AND (LOWER(oa.recipient_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                         OR oa.phone = :keyword)
+              ))
+          AND (CAST(:start AS timestamp) IS NULL OR o.created_at >= :start)
+          AND (CAST(:end AS timestamp) IS NULL OR o.created_at <= :end)
+          AND NOT EXISTS (
+                  SELECT 1
+                  FROM order_items oi
+                  JOIN products p ON p.id = oi.product_id
+                  JOIN product_status ps ON ps.id = p.status_id
+                  WHERE oi.order_id = o.id AND ps.status = 'DELETED'
+              )
+        ORDER BY o.created_at DESC
+        """, countQuery = """
+        SELECT COUNT(*)
+        FROM orders o
+        WHERE (:keyword IS NULL OR EXISTS (
+                  SELECT 1 FROM order_address oa
+                  WHERE oa.order_id = o.id
+                    AND (LOWER(oa.recipient_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                         OR oa.phone = :keyword)
+              ))
+          AND (CAST(:start AS timestamp) IS NULL OR o.created_at >= :start)
+          AND (CAST(:end AS timestamp) IS NULL OR o.created_at <= :end)
+          AND NOT EXISTS (
+                  SELECT 1
+                  FROM order_items oi
+                  JOIN products p ON p.id = oi.product_id
+                  JOIN product_status ps ON ps.id = p.status_id
+                  WHERE oi.order_id = o.id AND ps.status = 'DELETED'
+              )
+        """, nativeQuery = true)
+    Page<ModeratorOrderProjection> findOrders(
             @Param("keyword") String keyword,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
