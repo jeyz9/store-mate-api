@@ -620,7 +620,7 @@ public class OwnerDashboardRepository {
                                                       'สมุทรสาคร'
                                      )
                                           THEN 'กรุงเทพและปริมณฑล'
-                                      ELSE g.name
+                                          ELSE COALESCE(g.name, 'ไม่ระบุภูมิภาค')
                                      END AS geography,
                                  COUNT(o) AS "totalOrders"
                              FROM orders o
@@ -637,7 +637,7 @@ public class OwnerDashboardRepository {
                                                            'สมุทรสาคร'
                                  )
                                                THEN 'กรุงเทพและปริมณฑล'
-                                           ELSE g.name
+                                           ELSE COALESCE(g.name, 'ไม่ระบุภูมิภาค')
                                           END
                              ORDER BY "totalOrders" DESC
                          ) t
